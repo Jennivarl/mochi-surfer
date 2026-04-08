@@ -639,7 +639,7 @@
                     if (bx + b.w + b.sideW < 0 || bx > W) continue;
 
                     // ── Side face (3D depth illusion) ──
-                    const sideColor = isNear ? "#0d0620" : "#080412";
+                    const sideColor = isNear ? "#0e2038" : "#0a1828";
                     ctx.fillStyle = sideColor;
                     ctx.beginPath();
                     ctx.moveTo(bx + b.w, by);
@@ -659,8 +659,8 @@
                     // ── Building front face ──
                     // Gradient: slightly lighter at top for depth
                     const bgrad = ctx.createLinearGradient(bx, by, bx, HORIZON_Y);
-                    bgrad.addColorStop(0, isNear ? "#14102a" : "#0d0d1f");
-                    bgrad.addColorStop(1, isNear ? "#0a0818" : "#080814");
+                    bgrad.addColorStop(0, isNear ? "#1e3a5a" : "#162e4a");
+                    bgrad.addColorStop(1, isNear ? "#122840" : "#0e1e36");
                     ctx.fillStyle = bgrad;
                     ctx.fillRect(bx, by, b.w, b.h);
 
@@ -676,9 +676,9 @@
                     ctx.fillRect(bx, by, b.w, 2);
 
                     // Rooftop 3D ledge
-                    ctx.fillStyle = isNear ? "#1e1438" : "#140e28";
+                    ctx.fillStyle = isNear ? "#253c60" : "#1a2e4a";
                     ctx.fillRect(bx - 2, by - 4, b.w + 4, 5);
-                    ctx.fillStyle = isNear ? "#2a1850" : "#1a1030";
+                    ctx.fillStyle = isNear ? "#2e4870" : "#1e3555";
                     ctx.fillRect(bx - 2, by - 4, b.w + 4, 1);
 
                     // ── Roof details ──
@@ -755,10 +755,10 @@
         function drawTrack() {
             // ── Sky gradient — deeper, richer ──
             const sky = ctx.createLinearGradient(0, 0, 0, HORIZON_Y);
-            sky.addColorStop(0, "#02020c");
-            sky.addColorStop(0.45, "#08052a");
-            sky.addColorStop(0.85, "#160830");
-            sky.addColorStop(1, "#220a3a");
+            sky.addColorStop(0, "#050d20");
+            sky.addColorStop(0.45, "#0c1535");
+            sky.addColorStop(0.85, "#1a1040");
+            sky.addColorStop(1, "#281445");
             ctx.fillStyle = sky;
             ctx.fillRect(0, 0, W, HORIZON_Y);
 
@@ -817,9 +817,9 @@
 
             // ── Ground / track surface ──
             const ground = ctx.createLinearGradient(0, HORIZON_Y, 0, GROUND_Y);
-            ground.addColorStop(0, "#2e1a48");
-            ground.addColorStop(0.4, "#180e2e");
-            ground.addColorStop(1, "#0a0614");
+            ground.addColorStop(0, "#2e2050");
+            ground.addColorStop(0.4, "#1c1038");
+            ground.addColorStop(1, "#0c0820");
             ctx.fillStyle = ground;
             ctx.beginPath();
             ctx.moveTo(TRACK_LEFT_TOP, HORIZON_Y);
@@ -2205,6 +2205,35 @@
         // Read-only client — no wallet required for leaderboard reads
         const readClient = createClient({ chain: testnetBradbury });
 
+        // ─── Ensure MetaMask is on the GenLayer testnet ────────────────
+        async function ensureGenLayerChain() {
+            const chainHex = '0x' + testnetBradbury.id.toString(16);  // 0x107D = 4221
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: chainHex }]
+                });
+            } catch (switchErr) {
+                // 4902 = chain not added yet; -32603 = some wallets use this instead
+                if (switchErr.code === 4902 || switchErr.code === -32603) {
+                    const rpcUrl = testnetBradbury.rpcUrls?.default?.http?.[0] || 'https://rpc-bradbury.genlayer.com';
+                    const explorer = testnetBradbury.blockExplorers?.default?.url || '';
+                    await window.ethereum.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: chainHex,
+                            chainName: testnetBradbury.name || 'GenLayer Testnet Bradbury',
+                            rpcUrls: [rpcUrl],
+                            nativeCurrency: testnetBradbury.nativeCurrency || { name: 'GEN', symbol: 'GEN', decimals: 18 },
+                            blockExplorerUrls: explorer ? [explorer] : []
+                        }]
+                    });
+                } else {
+                    throw switchErr;
+                }
+            }
+        }
+
         // ─── Wallet Connect Overlay ────────────────────────────────────
         const walletOverlay = document.getElementById('wallet-overlay');
         const walletConnectBtn = document.getElementById('wallet-connect-btn');
@@ -2331,6 +2360,10 @@
                 } else {
                     setStatus('Submitting…');
                 }
+
+                // Switch MetaMask to GenLayer testnet (adds it if not present)
+                setStatus('Switching to GenLayer network…');
+                await ensureGenLayerChain();
 
                 const writeClient = createClient({ chain: testnetBradbury, account: walletAddr });
                 await writeClient.connect('testnetBradbury');
