@@ -1494,8 +1494,8 @@
                 const scale = w / 40; // used to scale details
 
                 if (obs.type === 'barrier') {
-                    // ── Subway train door / wall ──
-                    const h = w * 1.6;
+                    // ── Subway train door / wall ── (shorter = clear to jump over)
+                    const h = w * 0.85;
                     const lx = x - w / 2, ty = y - h;
 
                     // Main body — dark steel
@@ -1554,10 +1554,10 @@
                     ctx.shadowColor = "transparent";
 
                 } else {
-                    // ── Electric neon barrier ──
-                    const postH = w * 1.0;
+                    // ── Electric neon barrier ── (taller posts = clearly need to slide under)
+                    const postH = w * 1.65;
                     const postW = w * 0.14;
-                    const barY = y - postH * 0.62;
+                    const barY = y - postH * 0.55;
                     const barThick = w * 0.18;
 
                     // Posts — dark metal
@@ -1791,7 +1791,7 @@
             ctx.beginPath(); ctx.roundRect(cx - 162, cy - 210, 324, 400, 18); ctx.stroke();
             ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
 
-            // Cover image at top of card (load from cover.png)
+            // Cover image at top of card (load from cover.png), fallback to drawn Mochi
             if (window._coverImg && window._coverImg.complete && window._coverImg.naturalWidth > 0) {
                 ctx.save();
                 ctx.beginPath();
@@ -1799,6 +1799,8 @@
                 ctx.clip();
                 ctx.drawImage(window._coverImg, cx - 58, cy - 202, 116, 116);
                 ctx.restore();
+            } else {
+                drawMochiFront(cx, cy - 148, 26);
             }
 
             // Title — hot pink glow
@@ -2077,7 +2079,11 @@
 
         walletConnectBtn.addEventListener('click', async () => {
             if (!window.ethereum) {
-                setOverlayStatus('MetaMask not found — use Play as Guest', '#ff2d78');
+                // On mobile, open this page inside MetaMask's built-in browser
+                const pageUrl = encodeURIComponent(window.location.href);
+                const mmLink = 'https://metamask.app.link/dapp/' + window.location.host + window.location.pathname;
+                setOverlayStatus('Opening MetaMask…', '#f4c010');
+                window.location.href = mmLink;
                 return;
             }
             walletConnectBtn.disabled = true;
