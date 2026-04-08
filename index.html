@@ -355,18 +355,17 @@
         }
 
         #generate-code-btn {
+            width: 100%;
             background: rgba(0, 180, 255, 0.08);
             border: 1.5px solid rgba(0, 200, 255, 0.5);
-            border-radius: 6px;
+            border-radius: 8px;
             color: rgba(0, 220, 255, 0.9);
-            font-size: 11px;
+            font-size: 12px;
             font-weight: bold;
-            letter-spacing: 0.04em;
-            padding: 4px 9px;
+            letter-spacing: 0.06em;
+            padding: 9px;
             cursor: pointer;
             font-family: Arial, sans-serif;
-            line-height: 1;
-            white-space: nowrap;
         }
 
         #generate-code-btn:hover {
@@ -500,11 +499,10 @@
                 <div id="session-row">
                     <input id="session-code-input" type="text" maxlength="6" placeholder="Paste code here…"
                         autocomplete="off" spellcheck="false">
-                    <button id="generate-code-btn" title="Create a new tournament room">Create Room</button>
                     <button id="session-join-btn">Join</button>
                 </div>
-                <div id="session-status">Mods: Create Room &amp; share the code — Members: paste &amp; Join
-                </div>
+                <button id="generate-code-btn" title="Create a new tournament room">Create Room</button>
+                <div id="session-status"></div>
                 <!-- Guest username (shown when in a session + no wallet) -->
                 <div id="guest-name-row">
                     <div class="session-divider" style="margin:0"></div>
@@ -2461,7 +2459,7 @@
             window.sessionCode = null;
             window.guestName = null;
             sessionInput.value = '';
-            sessionStatus.textContent = 'Mods: Create Room & share the code — Members: paste & Join';
+            sessionStatus.textContent = '';
             sessionStatus.style.color = 'rgba(180,180,180,0.7)';
             sessionJoinBtn.textContent = 'Join';
             sessionJoinBtn.style.borderColor = '';
