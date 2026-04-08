@@ -2695,7 +2695,10 @@
                     interval: 5000,
                     retries: 60
                 });
-                setStatus('✓ Score saved on-chain!', '#39ff8e');
+                const explorerUrl = 'https://explorer-bradbury.genlayer.com/tx/' + txHash;
+                const s = document.getElementById('gl-status');
+                s.innerHTML = '✓ Score saved on-chain! <a href="' + explorerUrl + '" target="_blank" rel="noopener" style="color:#00dcff;text-decoration:underline;font-size:11px;">View tx ↗</a>';
+                s.style.color = '#39ff8e';
             } catch (err) {
                 const msg = (err.message || String(err));
                 if (msg.toLowerCase().includes('rejected') || msg.toLowerCase().includes('denied')) {
