@@ -5,6 +5,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Mochi Surfer Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -58,11 +60,13 @@
         }
 
         .gl-title {
-            color: rgba(0, 220, 255, 0.85);
+            color: rgba(0, 220, 255, 0.9);
             font-size: 11px;
-            font-weight: bold;
+            font-weight: 700;
             text-align: center;
-            letter-spacing: 0.5px;
+            letter-spacing: 2px;
+            font-family: 'Orbitron', Arial, sans-serif;
+            text-shadow: 0 0 8px rgba(0,220,255,0.5);
         }
 
         #gl-input-row {
@@ -160,11 +164,12 @@
 
         .gl-lb-title {
             color: #ff2d78;
-            font-size: 16px;
-            font-weight: bold;
+            font-size: 15px;
+            font-weight: 900;
             text-align: center;
-            font-family: Arial, sans-serif;
-            text-shadow: 0 0 10px #ff2d78;
+            font-family: 'Orbitron', Arial, sans-serif;
+            letter-spacing: 2px;
+            text-shadow: 0 0 12px #ff2d78;
         }
 
         .gl-lb-subtitle {
@@ -269,10 +274,12 @@
 
         .wallet-title {
             color: #00dcff;
-            font-size: 19px;
-            font-weight: bold;
+            font-size: 18px;
+            font-weight: 900;
             text-align: center;
-            text-shadow: 0 0 10px #00dcff;
+            font-family: 'Orbitron', Arial, sans-serif;
+            letter-spacing: 2px;
+            text-shadow: 0 0 12px #00dcff;
         }
 
         .wallet-sub {
@@ -334,7 +341,7 @@
         <!-- Wallet connect screen (shown first) -->
         <div id="wallet-overlay">
             <div class="wallet-card">
-                <div class="wallet-title">🏆 MOCHI SURFER</div>
+                <div class="wallet-title">MOCHI SURFER</div>
                 <div class="wallet-sub">Connect wallet to save your scores to the leaderboard</div>
                 <button id="wallet-connect-btn">🦊 Connect MetaMask</button>
                 <div id="wallet-overlay-status"></div>
@@ -344,20 +351,20 @@
 
         <!-- GenLayer blockchain submit panel (shown on game over) -->
         <div id="gl-panel">
-            <div class="gl-title">🏆 LEADERBOARD</div>
+            <div class="gl-title">LEADERBOARD</div>
             <div id="gl-input-row">
                 <input id="gl-name" type="text" maxlength="20" placeholder="Your name (1–20 chars)…" autocomplete="off"
                     spellcheck="false" />
                 <button id="gl-submit-btn">Submit</button>
             </div>
             <div id="gl-status"></div>
-            <button id="gl-board-btn">🏆 View Top Scores</button>
+            <button id="gl-board-btn">View Top Scores</button>
         </div>
 
         <!-- Full-screen leaderboard overlay -->
         <div id="gl-leaderboard-overlay">
             <div class="gl-lb-card">
-                <div class="gl-lb-title">🏆 TOP SCORES</div>
+                <div class="gl-lb-title">TOP SCORES</div>
                 <div class="gl-lb-subtitle">Global leaderboard</div>
                 <div id="gl-scores-list"></div>
                 <button id="gl-lb-close">✕ Close</button>
