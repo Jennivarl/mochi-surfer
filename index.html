@@ -2365,34 +2365,44 @@
         scaleGame();
         window.addEventListener('resize', scaleGame);
     </script>
+    <script>
+        // Patch window.fetch BEFORE the module script loads so the SDK always
+        // hits our interceptor. The SDK routes eth_chainId to the GenLayer RPC
+        // (not MetaMask) — the RPC rejects it. We answer locally instead.
+        (function () {
+            const GL_RPC = 'https://rpc-bradbury.genlayer.com';
+            const CHAIN_ID_RESULT = '0x107d'; // 4221
+            const _fetch = window.fetch.bind(window);
+            window.fetch = async function (input, init) {
+                const url = typeof input === 'string' ? input
+                    : (input instanceof Request ? input.url : String(input));
+                if (url.startsWith(GL_RPC)) {
+                    let bodyText = null;
+                    if (init?.body && typeof init.body === 'string') {
+                        bodyText = init.body;
+                    } else if (input instanceof Request) {
+                        try { bodyText = await input.clone().text(); } catch (_) { }
+                    }
+                    if (bodyText) {
+                        let parsed;
+                        try { parsed = JSON.parse(bodyText); } catch (_) { }
+                        const m = parsed?.method;
+                        if (m === 'eth_chainId' || m === 'eth_chainID') {
+                            return new Response(
+                                JSON.stringify({ jsonrpc: '2.0', id: parsed.id ?? 1, result: CHAIN_ID_RESULT }),
+                                { status: 200, headers: { 'Content-Type': 'application/json' } }
+                            );
+                        }
+                    }
+                }
+                return _fetch(input, init);
+            };
+        })();
+    </script>
     <script type="module">
         // ─── GenLayer Leaderboard Integration ──────────────────────────
         import { createClient } from 'https://esm.sh/genlayer-js@0.28.4';
         import { testnetBradbury } from 'https://esm.sh/genlayer-js@0.28.4/chains';
-
-        // ─── RPC fetch interceptor ─────────────────────────────────────
-        // The SDK routes eth_chainId to the GenLayer RPC (not MetaMask) because
-        // it's not in the SDK's MetaMask-method allowlist. The RPC rejects it.
-        // We intercept those fetch calls and answer directly so the SDK never
-        // actually hits the RPC for this method.
-        (function () {
-            const GL_RPC = 'https://rpc-bradbury.genlayer.com';
-            const _fetch = window.fetch.bind(window);
-            window.fetch = async function (url, init) {
-                if (typeof url === 'string' && url.startsWith(GL_RPC) && init?.body) {
-                    let body;
-                    try { body = JSON.parse(init.body); } catch (_) { }
-                    // Handle both eth_chainId and the wrong-case eth_chainID
-                    if (body && (body.method === 'eth_chainId' || body.method === 'eth_chainID')) {
-                        return new Response(
-                            JSON.stringify({ jsonrpc: '2.0', id: body.id, result: '0x107d' }),
-                            { status: 200, headers: { 'Content-Type': 'application/json' } }
-                        );
-                    }
-                }
-                return _fetch(url, init);
-            };
-        })();
 
         // ─── Chain constants ───────────────────────────────────────────
         // testnetBradbury chain ID = 4221 = 0x107D
