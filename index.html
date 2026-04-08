@@ -1,0 +1,2017 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mochi Surfer Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            background: #1a1a2e;
+            border: 2px solid #444;
+        }
+
+        /* ─── GenLayer Blockchain UI ─────────────────────────── */
+        #game-wrap {
+            position: relative;
+            width: 480px;
+            height: 720px;
+        }
+
+        #gl-panel {
+            position: absolute;
+            bottom: 6px;
+            left: 90px;
+            width: 300px;
+            background: rgba(8, 5, 26, 0.97);
+            border: 1.5px solid rgba(180, 79, 255, 0.7);
+            border-radius: 10px;
+            padding: 8px 12px 10px;
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            font-family: Arial, sans-serif;
+            z-index: 20;
+            box-shadow: 0 0 18px rgba(180, 79, 255, 0.4);
+        }
+
+        .gl-title {
+            color: rgba(0, 220, 255, 0.85);
+            font-size: 11px;
+            font-weight: bold;
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+
+        #gl-input-row {
+            display: flex;
+            gap: 6px;
+        }
+
+        #gl-name {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(0, 220, 255, 0.35);
+            border-radius: 6px;
+            color: #ffffff;
+            font-size: 12px;
+            padding: 5px 8px;
+            outline: none;
+            font-family: Arial, sans-serif;
+        }
+
+        #gl-name::placeholder {
+            color: rgba(255, 255, 255, 0.35);
+        }
+
+        #gl-submit-btn {
+            background: rgba(42, 8, 69, 0.9);
+            border: 1.5px solid #b44fff;
+            border-radius: 6px;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 4px 10px;
+            cursor: pointer;
+            font-family: Arial, sans-serif;
+            white-space: nowrap;
+        }
+
+        #gl-submit-btn:hover {
+            background: rgba(80, 20, 120, 0.9);
+        }
+
+        #gl-submit-btn:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+
+        #gl-status {
+            color: rgba(180, 180, 180, 0.9);
+            font-size: 10px;
+            min-height: 14px;
+            text-align: center;
+        }
+
+        #gl-board-btn {
+            background: transparent;
+            border: 1px solid rgba(0, 220, 255, 0.4);
+            border-radius: 6px;
+            color: rgba(0, 220, 255, 0.85);
+            font-size: 11px;
+            padding: 4px;
+            cursor: pointer;
+            font-family: Arial, sans-serif;
+        }
+
+        #gl-board-btn:hover {
+            background: rgba(0, 220, 255, 0.08);
+        }
+
+        /* Leaderboard full overlay */
+        #gl-leaderboard-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.88);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 30;
+        }
+
+        .gl-lb-card {
+            background: #08051a;
+            border: 1.5px solid #b44fff;
+            border-radius: 14px;
+            padding: 18px 22px;
+            width: 320px;
+            max-height: 500px;
+            overflow-y: auto;
+            box-shadow: 0 0 24px rgba(180, 79, 255, 0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .gl-lb-title {
+            color: #ff2d78;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            text-shadow: 0 0 10px #ff2d78;
+        }
+
+        .gl-lb-subtitle {
+            color: rgba(0, 220, 255, 0.6);
+            font-size: 10px;
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+
+        .gl-score-row {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            gap: 10px;
+            font-family: Arial, sans-serif;
+        }
+
+        .gl-rank {
+            color: rgba(0, 220, 255, 0.7);
+            font-size: 12px;
+            font-weight: bold;
+            width: 24px;
+            flex-shrink: 0;
+        }
+
+        .gl-uname {
+            color: #ffffff;
+            font-size: 13px;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .gl-score-val {
+            color: #f4c010;
+            font-size: 13px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        #gl-lb-close {
+            margin-top: 4px;
+            background: rgba(42, 8, 69, 0.9);
+            border: 1.5px solid #b44fff;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: bold;
+            padding: 8px;
+            cursor: pointer;
+            font-family: Arial, sans-serif;
+        }
+
+        #gl-lb-close:hover {
+            background: rgba(80, 20, 120, 0.9);
+        }
+
+        .gl-no-scores,
+        .gl-loading {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 12px;
+            text-align: center;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+
+        .gl-loading {
+            color: rgba(0, 220, 255, 0.7);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-wrap">
+        <canvas id="gameCanvas" width="480" height="720"></canvas>
+
+        <!-- GenLayer blockchain submit panel (shown on game over) -->
+        <div id="gl-panel">
+            <div class="gl-title">⛓ GENLAYER ON-CHAIN LEADERBOARD</div>
+            <div id="gl-input-row">
+                <input id="gl-name" type="text" maxlength="20" placeholder="Your name (1–20 chars)…" autocomplete="off"
+                    spellcheck="false" />
+                <button id="gl-submit-btn">Submit</button>
+            </div>
+            <div id="gl-status"></div>
+            <button id="gl-board-btn">🏆 View Top Scores</button>
+        </div>
+
+        <!-- Full-screen leaderboard overlay -->
+        <div id="gl-leaderboard-overlay">
+            <div class="gl-lb-card">
+                <div class="gl-lb-title">🏆 ON-CHAIN TOP SCORES</div>
+                <div class="gl-lb-subtitle">Powered by GenLayer AI · testnet-bradbury</div>
+                <div id="gl-scores-list"></div>
+                <button id="gl-lb-close">✕ Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const W = canvas.width;
+        const H = canvas.height;
+
+        // ─── Game State ───────────────────────────────────────────────
+        let lastTime = 0;
+        let animFrameId = null;
+        let score = 0;
+        let elapsedTime = 0;
+        let highScore = 0;
+        const MAX_SPEED = 1.4;
+
+        // ─── Screen Shake ─────────────────────────────────────────────
+        let shakeTimer = 0;
+        const SHAKE_DURATION = 400;
+        let shakeMag = 0;
+
+        function triggerShake(mag) { shakeTimer = SHAKE_DURATION; shakeMag = mag; }
+
+        function getShakeOffset() {
+            if (shakeTimer <= 0) return { sx: 0, sy: 0 };
+            const t = shakeTimer / SHAKE_DURATION;
+            const s = shakeMag * t;
+            return { sx: (Math.random() - 0.5) * s * 2, sy: (Math.random() - 0.5) * s * 2 };
+        }
+
+        // ─── Particles ────────────────────────────────────────────────
+        let particles = [];
+
+        function spawnCoinPop(x, y) {
+            for (let i = 0; i < 8; i++) {
+                const angle = (Math.PI * 2 * i) / 8;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * (60 + Math.random() * 60),
+                    vy: Math.sin(angle) * (60 + Math.random() * 60) - 40,
+                    life: 1.0,
+                    decay: 1.8 + Math.random(),
+                    r: 4 + Math.random() * 3,
+                    color: ["#00e5ff", "#b44fff", "#ff2d78", "#ffffff"][Math.floor(Math.random() * 4)]
+                });
+            }
+        }
+
+        function updateParticles(dt) {
+            const sec = dt / 1000;
+            for (const p of particles) {
+                p.x += p.vx * sec;
+                p.y += p.vy * sec;
+                p.vy += 300 * sec;
+                p.life -= p.decay * sec;
+            }
+            particles = particles.filter(p => p.life > 0);
+        }
+
+        function drawParticles() {
+            for (const p of particles) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, p.life);
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // ─── Milestone Banner ─────────────────────────────────────────
+        let banner = null;
+        const MILESTONES = new Set([100, 250, 500, 1000, 2000, 3000, 5000]);
+        let lastMilestone = 0;
+
+        function checkMilestone() {
+            for (const m of MILESTONES) {
+                if (score >= m && lastMilestone < m) {
+                    lastMilestone = m;
+                    banner = { text: m + " PTS!", timer: 1800, maxTimer: 1800, color: "#00e5ff" };
+                }
+            }
+            if (!window._speed50shown && elapsedTime > 5000) {
+                const speedPct = (gameSpeed - 0.4) / (MAX_SPEED - 0.4);
+                if (speedPct >= 0.5) {
+                    window._speed50shown = true;
+                    banner = { text: "SPEEDING UP!", timer: 1500, maxTimer: 1500, color: "#ff2d78" };
+                }
+            }
+        }
+
+        function updateBanner(dt) {
+            if (banner) { banner.timer -= dt; if (banner.timer <= 0) banner = null; }
+        }
+
+        function drawBanner() {
+            if (!banner) return;
+            const t = banner.timer / banner.maxTimer;
+            const alpha = t < 0.2 ? t / 0.2 : 1;
+            const scale = 1 + (1 - t) * 0.3;
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.translate(W / 2, H * 0.25);
+            ctx.scale(scale, scale);
+            ctx.textAlign = "center";
+            // Pill background
+            const tw = ctx.measureText(banner.text).width + 32;
+            ctx.fillStyle = "rgba(5,0,18,0.75)";
+            ctx.beginPath(); ctx.roundRect(-tw / 2, -28, tw, 40, 8); ctx.fill();
+            // Neon border
+            ctx.shadowColor = banner.color;
+            ctx.shadowBlur = 18;
+            ctx.strokeStyle = banner.color;
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.roundRect(-tw / 2, -28, tw, 40, 8); ctx.stroke();
+            // Text glow
+            ctx.fillStyle = banner.color;
+            ctx.font = "bold 34px Arial";
+            ctx.fillText(banner.text, 0, 0);
+            ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+            ctx.restore();
+        }
+
+        // ─── Player trail ─────────────────────────────────────────────
+        let trail = [];
+
+        function updateTrail() {
+            if (gameState !== 'playing') return;
+            trail.unshift({ x: player.x, y: PLAYER_Y_BASE + player.jumpY });
+            if (trail.length > 10) trail.pop();
+        }
+
+        function drawTrail() {
+            if (!player.jumping) return;
+            for (let i = 0; i < trail.length; i++) {
+                const t = trail[i];
+                const frac = 1 - i / trail.length;
+                const alpha = frac * 0.45;
+                // Alternate cyan / purple for a neon streak
+                const color = i % 2 === 0 ? "#00e5ff" : "#b44fff";
+                const rx = Math.max(0.5, 11 - i);
+                const ry = Math.max(0.5, 5.5 - i * 0.4);
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 8 * frac;
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.ellipse(t.x, t.y, rx, ry, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // ─── Track / Perspective Settings ────────────────────────────
+        const HORIZON_Y = H * 0.38;       // where the track vanishes (horizon line)
+        const GROUND_Y = H;              // bottom of the canvas
+        const TRACK_LEFT_TOP = W * 0.3; // left edge of track at horizon
+        const TRACK_RIGHT_TOP = W * 0.7;
+        const TRACK_LEFT_BOT = W * 0.0; // left edge of track at bottom
+        const TRACK_RIGHT_BOT = W * 1.0;
+
+        // Lane dividers: 2 lines splitting track into 3 lanes
+        // Positions are fractions across the track width (at top and bottom)
+        const LANE_FRACS = [1 / 3, 2 / 3]; // two divider lines
+
+        // Scrolling lines (horizontal lines that move downward = forward motion)
+        const NUM_SCROLL_LINES = 12;
+        let scrollOffset = 0;           // 0 to 1, loops
+        let gameSpeed = 0.4;            // controls track scroll + obstacle speed (increases over time)
+
+        // ─── Helper: get X position at a given Y on the track edges ──
+        function trackX(frac, y) {
+            // frac 0 = left edge, 1 = right edge, interpolated by y
+            const t = (y - HORIZON_Y) / (GROUND_Y - HORIZON_Y); // 0 at top, 1 at bottom
+            const left = TRACK_LEFT_TOP + (TRACK_LEFT_BOT - TRACK_LEFT_TOP) * t;
+            const right = TRACK_RIGHT_TOP + (TRACK_RIGHT_BOT - TRACK_RIGHT_TOP) * t;
+            return left + (right - left) * frac;
+        }
+
+        // ─── Update ───────────────────────────────────────────────────
+        function update(dt) {
+            if (gameState !== 'playing') return;
+            const sec = dt / 1000;
+            elapsedTime += dt;
+
+            // Score: distance points + coin bonus
+            score += Math.floor(gameSpeed * 18 * sec);
+
+            // Difficulty ramp: speed increases every 8 seconds, capped at MAX_SPEED
+            gameSpeed = Math.min(MAX_SPEED, 0.4 + (elapsedTime / 1000) * 0.018);
+
+            // Advance scroll offset, loop back
+            scrollOffset = (scrollOffset + gameSpeed * sec) % 1;
+            updatePlayer(dt);
+            updateObstacles(dt);
+            updateCoins(dt);
+            updateParticles(dt);
+            updateBanner(dt);
+            updateTrail();
+            checkCollisions();
+            checkMilestone();
+            if (shakeTimer > 0) shakeTimer -= dt;
+        }
+
+        // ─── City Buildings ───────────────────────────────────────────
+        // Each building: { x, w, h, offset, windows:[ {row,col,lit} ] }
+        // Two parallax layers: far (slower) and near (faster)
+        const FAR_BUILDINGS = (function () {
+            const rng = (a, b) => a + Math.random() * (b - a);
+            const cols = [];
+            let x = -20;
+            while (x < W + 20) {
+                const bw = rng(28, 60);
+                const bh = rng(50, HORIZON_Y * 0.85);
+                const wrows = Math.floor(bh / 14);
+                const wcols = Math.max(1, Math.floor(bw / 13));
+                const wins = [];
+                for (let r = 0; r < wrows; r++)
+                    for (let c = 0; c < wcols; c++)
+                        wins.push({ r, c, lit: Math.random() < 0.55 });
+                cols.push({ x, w: bw, h: bh, wins });
+                x += bw + rng(4, 14);
+            }
+            return cols;
+        }());
+        const NEAR_BUILDINGS = (function () {
+            const rng = (a, b) => a + Math.random() * (b - a);
+            const cols = [];
+            let x = -30;
+            while (x < W + 40) {
+                const bw = rng(40, 80);
+                const bh = rng(HORIZON_Y * 0.4, HORIZON_Y * 1.05);
+                const wrows = Math.floor(bh / 16);
+                const wcols = Math.max(1, Math.floor(bw / 15));
+                const wins = [];
+                for (let r = 0; r < wrows; r++)
+                    for (let c = 0; c < wcols; c++)
+                        wins.push({ r, c, lit: Math.random() < 0.5 });
+                cols.push({ x, w: bw, h: bh, wins });
+                x += bw + rng(6, 20);
+            }
+            return cols;
+        }());
+
+        let cityScrollFar = 0;
+        let cityScrollNear = 0;
+        const NEON_COLORS = ["#ff2d78", "#b44fff", "#00e5ff", "#39ff14", "#ff9500"];
+
+        function drawBuildings(buildings, scrollX, alpha, winW, winH, gap) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            const totalW = buildings[buildings.length - 1].x + buildings[buildings.length - 1].w + 20;
+            for (let pass = 0; pass < 2; pass++) {
+                const baseX = pass * totalW - scrollX % totalW;
+                for (const b of buildings) {
+                    const bx = baseX + b.x;
+                    const by = HORIZON_Y - b.h;
+                    // Skip off-screen
+                    if (bx + b.w < 0 || bx > W) continue;
+                    // Building body
+                    ctx.fillStyle = pass === 0 ? "#0d0d1a" : "#0a0a16";
+                    ctx.fillRect(bx, by, b.w, b.h);
+                    // Roof line accent
+                    ctx.fillStyle = "rgba(140,80,255,0.25)";
+                    ctx.fillRect(bx, by, b.w, 2);
+                    // Windows
+                    for (const w of b.wins) {
+                        const wx = bx + gap + w.c * (winW + gap);
+                        const wy = by + gap + w.r * (winH + gap);
+                        if (wx + winW > bx + b.w || wy + winH > HORIZON_Y) continue;
+                        if (w.lit) {
+                            ctx.fillStyle = Math.random() < 0.003
+                                ? NEON_COLORS[Math.floor(Math.random() * NEON_COLORS.length)]
+                                : "rgba(255,240,160,0.85)";
+                            ctx.fillRect(wx, wy, winW, winH);
+                        } else {
+                            ctx.fillStyle = "rgba(30,30,50,0.6)";
+                            ctx.fillRect(wx, wy, winW, winH);
+                        }
+                    }
+                }
+            }
+            ctx.restore();
+        }
+
+        // ─── Draw Track ───────────────────────────────────────────────
+        function drawTrack() {
+            // ── Sky gradient ──
+            const sky = ctx.createLinearGradient(0, 0, 0, HORIZON_Y);
+            sky.addColorStop(0, "#04040f");
+            sky.addColorStop(0.6, "#0d0830");
+            sky.addColorStop(1, "#1a0533");
+            ctx.fillStyle = sky;
+            ctx.fillRect(0, 0, W, HORIZON_Y);
+
+            // ── Subtle stars ──
+            ctx.fillStyle = "rgba(255,255,255,0.7)";
+            // Fixed seed-like positions using sin
+            for (let i = 0; i < 60; i++) {
+                const sx = ((Math.sin(i * 127.1) * 0.5 + 0.5) * W) | 0;
+                const sy = ((Math.sin(i * 311.7) * 0.5 + 0.5) * HORIZON_Y * 0.9) | 0;
+                const sr = (Math.sin(i * 74.3) * 0.5 + 0.5) * 1.2 + 0.3;
+                ctx.beginPath();
+                ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // ── Far city buildings (slow parallax) ──
+            cityScrollFar += gameSpeed * 0.4;
+            drawBuildings(FAR_BUILDINGS, cityScrollFar, 0.7, 4, 5, 3);
+
+            // ── Near city buildings (faster parallax) ──
+            cityScrollNear += gameSpeed * 1.1;
+            drawBuildings(NEAR_BUILDINGS, cityScrollNear, 0.9, 5, 7, 4);
+
+            // ── Purple/pink city glow on horizon ──
+            const glowGrad = ctx.createLinearGradient(0, HORIZON_Y - 28, 0, HORIZON_Y + 8);
+            glowGrad.addColorStop(0, "rgba(160,0,255,0.0)");
+            glowGrad.addColorStop(0.5, "rgba(180,0,255,0.22)");
+            glowGrad.addColorStop(1, "rgba(255,50,120,0.35)");
+            ctx.fillStyle = glowGrad;
+            ctx.fillRect(0, HORIZON_Y - 28, W, 36);
+
+            // ── Ground / track surface ──
+            const ground = ctx.createLinearGradient(0, HORIZON_Y, 0, GROUND_Y);
+            ground.addColorStop(0, "#2a1a40");
+            ground.addColorStop(1, "#0e0818");
+            ctx.fillStyle = ground;
+            ctx.beginPath();
+            ctx.moveTo(TRACK_LEFT_TOP, HORIZON_Y);
+            ctx.lineTo(TRACK_RIGHT_TOP, HORIZON_Y);
+            ctx.lineTo(TRACK_RIGHT_BOT, GROUND_Y);
+            ctx.lineTo(TRACK_LEFT_BOT, GROUND_Y);
+            ctx.closePath();
+            ctx.fill();
+
+            // ── Neon scrolling grid lines ──
+            for (let i = 0; i < NUM_SCROLL_LINES; i++) {
+                let frac = (i / NUM_SCROLL_LINES + scrollOffset) % 1;
+                let pFrac = frac * frac;
+                let y = HORIZON_Y + (GROUND_Y - HORIZON_Y) * pFrac;
+                let x0 = trackX(0, y);
+                let x1 = trackX(1, y);
+                const alpha = 0.08 + pFrac * 0.18;
+                ctx.strokeStyle = `rgba(160,80,255,${alpha.toFixed(2)})`;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(x0, y);
+                ctx.lineTo(x1, y);
+                ctx.stroke();
+            }
+
+            // ── Lane dividers — cyan neon dashes ──
+            ctx.shadowColor = "#00e5ff";
+            ctx.shadowBlur = 6;
+            ctx.strokeStyle = "rgba(0,220,255,0.6)";
+            ctx.lineWidth = 2;
+            ctx.setLineDash([18, 14]);
+            for (const frac of LANE_FRACS) {
+                ctx.beginPath();
+                ctx.moveTo(trackX(frac, HORIZON_Y), HORIZON_Y);
+                ctx.lineTo(trackX(frac, GROUND_Y), GROUND_Y);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+            ctx.shadowBlur = 0;
+
+            // ── Outer track edges — purple neon ──
+            ctx.shadowColor = "#b44fff";
+            ctx.shadowBlur = 10;
+            ctx.strokeStyle = "rgba(180,80,255,0.85)";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(TRACK_LEFT_TOP, HORIZON_Y);
+            ctx.lineTo(TRACK_LEFT_BOT, GROUND_Y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(TRACK_RIGHT_TOP, HORIZON_Y);
+            ctx.lineTo(TRACK_RIGHT_BOT, GROUND_Y);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = "transparent";
+
+            // ── Horizon neon line ──
+            ctx.shadowColor = "#ff2d78";
+            ctx.shadowBlur = 12;
+            ctx.strokeStyle = "rgba(255,45,120,0.8)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, HORIZON_Y);
+            ctx.lineTo(W, HORIZON_Y);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = "transparent";
+        }
+
+        // ─── Player ───────────────────────────────────────────────────
+        // Lanes: 0=left, 1=center, 2=right
+        const PLAYER_Y_BASE = H * 0.78;   // feet level on screen
+        const PLAYER_W = 36;
+        const PLAYER_H = 54;
+        const SLIDE_H = 28;              // height when sliding
+
+        const player = {
+            lane: 1,                      // current lane (0,1,2)
+            targetLane: 1,               // lane we're moving to
+            x: 0,                        // calculated each frame
+            y: PLAYER_Y_BASE,
+
+            // Lane switching
+            laneX: 0,                    // current visual x (interpolates to target)
+            targetX: 0,                  // target x for current lane
+            laneSpeed: 10,               // how fast to slide between lanes (lerp factor)
+
+            // Jump
+            jumping: false,
+            jumpVY: 0,                   // vertical velocity (pixels/sec)
+            jumpY: 0,                    // offset upward from base y
+            JUMP_FORCE: -520,
+            GRAVITY: 1400,
+
+            // Slide
+            sliding: false,
+            slideTimer: 0,               // countdown in ms
+            SLIDE_DURATION: 600,
+
+            // State: 'run' | 'jump' | 'slide'
+            get state() {
+                if (this.jumping) return 'jump';
+                if (this.sliding) return 'slide';
+                return 'run';
+            },
+
+            // Running animation
+            runFrame: 0,
+            runTimer: 0,
+        };
+
+        // Centre X of each lane at the player's Y level
+        function laneXAt(lane, y) {
+            // Lane fractions: 0→0/3..1/3, 1→1/3..2/3, 2→2/3..3/3, centre = mid
+            const fracs = [1 / 6, 3 / 6, 5 / 6];
+            return trackX(fracs[lane], y);
+        }
+
+        // ─── Input ────────────────────────────────────────────────────
+        const keys = {};
+        window.addEventListener("keydown", (e) => {
+            if (keys[e.code]) return; // ignore held keys
+            keys[e.code] = true;
+
+            if (e.code === "ArrowLeft" || e.code === "KeyA") {
+                if (player.targetLane > 0) player.targetLane--;
+            }
+            if (e.code === "ArrowRight" || e.code === "KeyD") {
+                if (player.targetLane < 2) player.targetLane++;
+            }
+            if ((e.code === "ArrowUp" || e.code === "KeyW" || e.code === "Space") && !player.jumping) {
+                player.jumping = true;
+                player.jumpVY = player.JUMP_FORCE;
+                player.sliding = false;
+            }
+            if ((e.code === "ArrowDown" || e.code === "KeyS") && !player.jumping) {
+                player.sliding = true;
+                player.slideTimer = player.SLIDE_DURATION;
+            }
+        });
+        window.addEventListener("keyup", (e) => { keys[e.code] = false; });
+
+        // ─── Update Player ────────────────────────────────────────────
+        function updatePlayer(dt) {
+            const sec = dt / 1000;
+
+            // Target X for current lane
+            player.targetX = laneXAt(player.targetLane, PLAYER_Y_BASE);
+
+            // Smoothly slide player X toward target (lerp)
+            player.laneX += (player.targetX - player.laneX) * Math.min(1, player.laneSpeed * sec);
+            player.x = player.laneX;
+
+            // Jump physics
+            if (player.jumping) {
+                player.jumpVY += player.GRAVITY * sec;
+                player.jumpY += player.jumpVY * sec;
+                if (player.jumpY >= 0) {
+                    player.jumpY = 0;
+                    player.jumpVY = 0;
+                    player.jumping = false;
+                }
+            }
+
+            // Slide timer
+            if (player.sliding) {
+                player.slideTimer -= dt;
+                if (player.slideTimer <= 0) {
+                    player.sliding = false;
+                    player.slideTimer = 0;
+                }
+            }
+
+            // Running frame animation (leg swing)
+            player.runTimer += dt;
+            if (player.runTimer > 120) {
+                player.runTimer = 0;
+                player.runFrame = (player.runFrame + 1) % 4;
+            }
+        }
+
+        // ─── Mochi Drawing Helpers ────────────────────────────────────────
+        function mochiBoard(cx, py, scale) {
+            const bw = 48 * scale;
+            const wr = 6 * scale;
+
+            // Wheels — bright with cyan hub glow
+            for (const wx of [cx - bw / 2 + 9 * scale, cx + bw / 2 - 9 * scale]) {
+                // Wheel outer
+                ctx.fillStyle = "#888";
+                ctx.beginPath();
+                ctx.arc(wx, py - wr * 0.6, wr, 0, Math.PI * 2);
+                ctx.fill();
+                // Wheel inner (cyan glowing hub)
+                ctx.shadowColor = "#00e5ff";
+                ctx.shadowBlur = 8;
+                ctx.fillStyle = "#00e5ff";
+                ctx.beginPath();
+                ctx.arc(wx, py - wr * 0.6, wr * 0.38, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            // Deck body — dark wood with purple neon glow
+            ctx.shadowColor = "#b44fff";
+            ctx.shadowBlur = 14;
+            ctx.fillStyle = "#3a1060";
+            ctx.beginPath();
+            ctx.roundRect(cx - bw / 2, py - 14, bw, 8, 4);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Deck top edge — bright purple neon stripe
+            ctx.shadowColor = "#d060ff";
+            ctx.shadowBlur = 10;
+            ctx.strokeStyle = "#d060ff";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(cx - bw / 2, py - 14, bw, 8, 4);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = "transparent";
+
+            // Grip tape texture (two cyan lines across deck)
+            ctx.strokeStyle = "rgba(0,220,255,0.45)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(cx - bw / 2 + 4, py - 11);
+            ctx.lineTo(cx + bw / 2 - 4, py - 11);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx - bw / 2 + 4, py - 9);
+            ctx.lineTo(cx + bw / 2 - 4, py - 9);
+            ctx.stroke();
+        }
+
+        function mochiBody(cx, py, isSlide) {
+            const bw = isSlide ? 34 : 24;
+            const bh = isSlide ? 15 : 24;
+            const by = py - 13;
+            // Back plate — white armor
+            ctx.fillStyle = "#dcdcea";
+            ctx.strokeStyle = "#8888a8";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.roundRect(cx - bw / 2, by - bh, bw, bh, 5);
+            ctx.fill();
+            ctx.stroke();
+            if (!isSlide) {
+                // Spine line
+                ctx.strokeStyle = "#9090b0";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(cx, by - bh + 4);
+                ctx.lineTo(cx, by - 4);
+                ctx.stroke();
+                // Horizontal cross panel
+                ctx.beginPath();
+                ctx.moveTo(cx - bw / 2 + 3, by - bh * 0.52);
+                ctx.lineTo(cx + bw / 2 - 3, by - bh * 0.52);
+                ctx.stroke();
+                // Side armor panels
+                ctx.fillStyle = "#9090b0";
+                ctx.fillRect(cx - bw / 2, by - bh + 5, 3, bh - 5);
+                ctx.fillRect(cx + bw / 2 - 3, by - bh + 5, 3, bh - 5);
+                // Back thruster pack (purple glow)
+                ctx.fillStyle = "#1e1e2e";
+                ctx.beginPath();
+                ctx.roundRect(cx - 6, by - bh + 4, 12, 11, 3);
+                ctx.fill();
+                ctx.shadowColor = "#b44fff";
+                ctx.shadowBlur = 8;
+                ctx.strokeStyle = "#b44fff";
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.roundRect(cx - 6, by - bh + 4, 12, 11, 3);
+                ctx.stroke();
+                // Thruster glow dot
+                ctx.fillStyle = "#d060ff";
+                ctx.beginPath();
+                ctx.arc(cx, by - bh + 9.5, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.shadowColor = "transparent";
+            }
+        }
+
+        function drawMochiEarPair(cx, cy, r) {
+            for (const s of [-1, 1]) {
+                const bix = cx + s * r * 0.30, biy = cy - r * 0.78; // base inner
+                const box = cx + s * r * 0.90, boy = cy - r * 0.52; // base outer
+                const tx = cx + s * r * 0.76, ty = cy - r * 1.85; // tip
+                // Gradient: dark base → bright pink tip
+                const g = ctx.createLinearGradient(cx + s * r * 0.5, cy - r * 0.65, tx, ty);
+                g.addColorStop(0, "#6a1596");
+                g.addColorStop(0.55, "#9930c8");
+                g.addColorStop(1, "#cc44ee");
+                ctx.fillStyle = g;
+                // Far edge curves outward; near edge sharper
+                ctx.beginPath();
+                ctx.moveTo(bix, biy);
+                ctx.quadraticCurveTo(cx + s * r * 1.22, cy - r * 1.10, tx, ty);
+                ctx.quadraticCurveTo(cx + s * r * 0.48, cy - r * 1.55, box, boy);
+                ctx.closePath();
+                ctx.fill();
+                // Inner ear highlight
+                ctx.fillStyle = "#de76f8";
+                ctx.beginPath();
+                ctx.moveTo(cx + s * r * 0.43, biy + r * 0.06);
+                ctx.quadraticCurveTo(cx + s * r * 1.06, cy - r * 1.10, cx + s * r * 0.72, ty + r * 0.24);
+                ctx.quadraticCurveTo(cx + s * r * 0.54, cy - r * 1.50, cx + s * r * 0.78, boy + r * 0.10);
+                ctx.closePath();
+                ctx.fill();
+                // Mechanical joint at ear base
+                ctx.fillStyle = "#8a8aaa";
+                ctx.beginPath();
+                ctx.arc(cx + s * r * 0.58, cy - r * 0.64, r * 0.17, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = "#3a3a52";
+                ctx.beginPath();
+                ctx.arc(cx + s * r * 0.58, cy - r * 0.64, r * 0.08, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function mochiHead(cx, cy, r, isSlide) {
+            // Ears drawn first so the ring overlaps their base
+            if (!isSlide) drawMochiEarPair(cx, cy, r);
+            // Thick proportional armor ring
+            ctx.fillStyle = "#8a8aaa";
+            ctx.beginPath();
+            ctx.arc(cx, cy, r * 1.28, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#aaaacc";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r * 1.28, 0, Math.PI * 2);
+            ctx.stroke();
+            // Back of helmet — dark metallic gradient
+            const hback = ctx.createRadialGradient(cx, cy - r * 0.3, r * 0.05, cx, cy, r);
+            hback.addColorStop(0, "#2e2e46");
+            hback.addColorStop(1, "#0d0d1a");
+            ctx.fillStyle = hback;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.fill();
+            if (!isSlide) {
+                // Back panel detail
+                ctx.fillStyle = "#1a1a2e";
+                ctx.beginPath();
+                ctx.roundRect(cx - r * 0.32, cy - r * 0.42, r * 0.64, r * 0.52, 3);
+                ctx.fill();
+                // Purple neon horizontal strip on back
+                ctx.shadowColor = "#b44fff";
+                ctx.shadowBlur = 8;
+                ctx.strokeStyle = "#b44fff";
+                ctx.lineWidth = 2;
+                ctx.lineCap = "round";
+                ctx.beginPath();
+                ctx.moveTo(cx - r * 0.26, cy - r * 0.22);
+                ctx.lineTo(cx + r * 0.26, cy - r * 0.22);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                // Cyan neck collar at bottom
+                ctx.shadowColor = "#00e5ff";
+                ctx.shadowBlur = 7;
+                ctx.strokeStyle = "rgba(0,220,255,0.75)";
+                ctx.lineWidth = 2.2;
+                ctx.beginPath();
+                ctx.arc(cx, cy + r * 0.65, r * 0.44, Math.PI * 0.08, Math.PI * 0.92);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            } else {
+                // Side neon strips when sliding
+                ctx.shadowColor = "#b44fff";
+                ctx.shadowBlur = 6;
+                ctx.strokeStyle = "#b44fff";
+                ctx.lineWidth = 1.5;
+                ctx.lineCap = "round";
+                ctx.beginPath();
+                ctx.moveTo(cx - r * 0.7, cy);
+                ctx.lineTo(cx + r * 0.7, cy);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+            ctx.shadowColor = "transparent";
+        }
+
+        function mochiCannonArm(cx, cy, angle) {
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle);
+            // Upper arm
+            ctx.fillStyle = "#363648";
+            ctx.strokeStyle = "#50506a";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(-6, -4, 12, 16, 4);
+            ctx.fill();
+            ctx.stroke();
+            // Cannon housing
+            ctx.fillStyle = "#22222e";
+            ctx.strokeStyle = "#404058";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(0, 16, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            // Blue glow dots
+            ctx.shadowColor = "#00aaff";
+            ctx.shadowBlur = 7;
+            ctx.fillStyle = "#0099ee";
+            for (let i = 0; i < 3; i++) {
+                const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
+                ctx.beginPath();
+                ctx.arc(Math.cos(a) * 5.5, 16 + Math.sin(a) * 5.5, 2.2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // Center dot
+            ctx.fillStyle = "#00ddff";
+            ctx.beginPath();
+            ctx.arc(0, 16, 2.8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+
+        function mochiRightArm(cx, cy, angle) {
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle);
+            ctx.fillStyle = "#363648";
+            ctx.strokeStyle = "#50506a";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(-5, -4, 10, 14, 3);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = "#22222e";
+            ctx.beginPath();
+            ctx.arc(0, 14, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#0099ee";
+            ctx.shadowColor = "#00aaff";
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            ctx.arc(0, 14, 2.8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+
+        function mochiTail(cx, cy) {
+            // From back view tail is prominent — curves up and outward
+            ctx.save();
+            // Dark outer stroke
+            ctx.strokeStyle = "#0a0a10";
+            ctx.lineWidth = 5;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.bezierCurveTo(cx + 6, cy - 18, cx + 22, cy - 8, cx + 24, cy - 26);
+            ctx.stroke();
+            // Lighter inner stroke
+            ctx.strokeStyle = "#2a2a2a";
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.bezierCurveTo(cx + 6, cy - 18, cx + 22, cy - 8, cx + 24, cy - 26);
+            ctx.stroke();
+            // Tip glow
+            ctx.shadowColor = "#b44fff";
+            ctx.shadowBlur = 5;
+            ctx.fillStyle = "#2a2a2a";
+            ctx.beginPath();
+            ctx.arc(cx + 24, cy - 26, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+
+        // ─── Draw Player ──────────────────────────────────────────────
+        function drawPlayer() {
+            const px = player.x;
+            const py = PLAYER_Y_BASE + player.jumpY;
+            const isSlide = player.sliding;
+            const isJump = player.jumping;
+            const runF = player.runFrame;
+
+            // Shadow on ground
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, 0.35 - Math.abs(player.jumpY) / 500);
+            ctx.fillStyle = "#000";
+            ctx.beginPath();
+            ctx.ellipse(px, PLAYER_Y_BASE + 5, 26, 7, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // Back-facing: cannon arm (char's LEFT) = screen RIGHT, right arm = screen LEFT
+            if (isSlide) {
+                mochiBoard(px, py, 1.4);
+                mochiBody(px - 4, py, true);
+                mochiTail(px + 14, py - 14);
+                mochiHead(px - 6, py - 20, 11, true);
+            } else if (isJump) {
+                mochiBoard(px, py, 1.0);
+                mochiRightArm(px - 15, py - 25, -0.3);
+                mochiBody(px, py, false);
+                mochiTail(px + 16, py - 20);
+                mochiCannonArm(px + 15, py - 25, 0.3);
+                mochiHead(px, py - 50, 13, false);
+            } else {
+                const bob = [0, -1.5, 0, 1.5][runF];
+                mochiBoard(px, py, 1.0);
+                mochiRightArm(px - 15, py - 25 + bob, 0);
+                mochiBody(px, py + bob, false);
+                mochiTail(px + 16, py - 20 + bob);
+                mochiCannonArm(px + 15, py - 25 + bob, 0);
+                mochiHead(px, py - 50 + bob, 13, false);
+            }
+        }
+
+
+        // ─── Obstacles ────────────────────────────────────────────────
+        // depth: 0 = at horizon, PLAYER_DEPTH = at player's feet, ~1 = bottom
+        const PLAYER_DEPTH = Math.sqrt((PLAYER_Y_BASE - HORIZON_Y) / (GROUND_Y - HORIZON_Y));
+
+        let obstacles = [];
+        let obstacleTimer = -2000;          // pre-delay: first obstacle after 2s
+        const OBSTACLE_INTERVAL = 2200;     // ms between spawns
+        let gameOver = false;
+        let gameState = 'start';   // 'start' | 'playing' | 'gameover'
+
+        function spawnObstacle() {
+            const lane = Math.floor(Math.random() * 3);
+            const type = Math.random() < 0.45 ? 'low_bar' : 'barrier';
+            obstacles.push({ lane, type, depth: 0.0 });
+        }
+
+        function obstacleScreenPos(obs) {
+            const pFrac = obs.depth * obs.depth;
+            const y = HORIZON_Y + (GROUND_Y - HORIZON_Y) * pFrac;
+            const laneFracs = [1 / 6, 3 / 6, 5 / 6];
+            const x = trackX(laneFracs[obs.lane], y);
+            const trackW = trackX(1, y) - trackX(0, y);
+            const w = (trackW / 3) * 0.75;
+            return { x, y, w };
+        }
+
+        function updateObstacles(dt) {
+            const sec = dt / 1000;
+            obstacleTimer += dt;
+            if (obstacleTimer >= OBSTACLE_INTERVAL) {
+                obstacleTimer -= OBSTACLE_INTERVAL;
+                spawnObstacle();
+            }
+            for (const obs of obstacles) {
+                obs.depth += gameSpeed * sec;
+            }
+            obstacles = obstacles.filter(obs => obs.depth < 1.05);
+        }
+
+        // ─── Coins ────────────────────────────────────────────────────
+        let coins = [];
+        let coinCount = 0;
+        let coinTimer = -800;             // slight delay before first coin
+        const COIN_INTERVAL = 900;        // ms between coin spawns
+        const COIN_COLLECT_DEPTH = 0.06;  // tolerance for collection
+
+        // Coins spawn in a line of 3 in the same lane, one after another
+        let coinSequence = [];            // queued coin depths for current line
+
+        function spawnCoinLine() {
+            const lane = Math.floor(Math.random() * 3);
+            // 4 coins in a row, staggered depths
+            for (let i = 0; i < 4; i++) {
+                coins.push({ lane, depth: -(i * 0.07), collected: false });
+            }
+        }
+
+        function coinScreenPos(coin) {
+            const pFrac = coin.depth * coin.depth;
+            const y = HORIZON_Y + (GROUND_Y - HORIZON_Y) * pFrac;
+            const laneFracs = [1 / 6, 3 / 6, 5 / 6];
+            const x = trackX(laneFracs[coin.lane], y);
+            const trackW = trackX(1, y) - trackX(0, y);
+            const r = (trackW / 3) * 0.15;  // coin radius scales with perspective
+            return { x, y, r };
+        }
+
+        function updateCoins(dt) {
+            const sec = dt / 1000;
+            coinTimer += dt;
+            if (coinTimer >= COIN_INTERVAL) {
+                coinTimer -= COIN_INTERVAL;
+                spawnCoinLine();
+            }
+            for (const coin of coins) {
+                coin.depth += gameSpeed * sec;
+            }
+            // Collect coins
+            for (const coin of coins) {
+                if (coin.collected) continue;
+                if (coin.depth < PLAYER_DEPTH - COIN_COLLECT_DEPTH) continue;
+                if (coin.depth > PLAYER_DEPTH + COIN_COLLECT_DEPTH) continue;
+                if (coin.lane !== player.targetLane) continue;
+                coin.collected = true;
+                coinCount++;
+                const cpos = coinScreenPos(coin);
+                spawnCoinPop(cpos.x, cpos.y);
+            }
+            coins = coins.filter(c => c.depth < 1.1 && !c.collected);
+        }
+
+        function drawCoins() {
+            for (const coin of coins) {
+                if (coin.depth < 0) continue;
+                const { x, y, r } = coinScreenPos(coin);
+                if (r < 2) continue;
+
+                // Outer glow ring — cyan/purple
+                const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 2.4);
+                glow.addColorStop(0, "rgba(0,220,255,0.25)");
+                glow.addColorStop(0.5, "rgba(160,60,255,0.15)");
+                glow.addColorStop(1, "rgba(0,0,0,0)");
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(x, y, r * 2.4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Holographic coin body
+                const spin = (Date.now() * 0.002 + coin.depth * 6) % (Math.PI * 2);
+                const squish = Math.abs(Math.cos(spin)) * 0.6 + 0.4; // 0.4–1.0
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.scale(squish, 1);
+                const grad = ctx.createLinearGradient(-r, 0, r, 0);
+                grad.addColorStop(0, "#b44fff");
+                grad.addColorStop(0.4, "#00e5ff");
+                grad.addColorStop(0.7, "#ff2d78");
+                grad.addColorStop(1, "#b44fff");
+                ctx.shadowColor = "#00e5ff";
+                ctx.shadowBlur = 8;
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(0, 0, r, 0, Math.PI * 2);
+                ctx.fill();
+                // Inner highlight
+                ctx.fillStyle = "rgba(255,255,255,0.35)";
+                ctx.beginPath();
+                ctx.ellipse(-r * 0.15, -r * 0.2, r * 0.38, r * 0.22, -0.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            }
+        }
+
+        function checkCollisions() {
+            const TOLERANCE = 0.07;
+            for (const obs of obstacles) {
+                if (Math.abs(obs.depth - PLAYER_DEPTH) > TOLERANCE) continue;
+                if (obs.lane !== player.targetLane) continue;
+                if (obs.type === 'barrier' && player.jumping) continue;
+                if (obs.type === 'low_bar' && player.sliding) continue;
+                if (score > highScore) highScore = score;
+                gameOver = true;
+                gameState = 'gameover';
+                triggerShake(18);
+                if (typeof window.mochiOnGameOver === 'function') window.mochiOnGameOver(score);
+                break;
+            }
+        }
+
+        // ─── HUD ──────────────────────────────────────────────────────
+        function drawHUD() {
+            // Glassmorphism top bar
+            ctx.fillStyle = "rgba(5,0,18,0.72)";
+            ctx.fillRect(0, 0, W, 54);
+            // Bottom edge neon line
+            ctx.shadowColor = "#b44fff";
+            ctx.shadowBlur = 8;
+            ctx.strokeStyle = "rgba(180,80,255,0.7)";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(0, 54); ctx.lineTo(W, 54);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = "transparent";
+
+            // Score — cyan glow
+            ctx.shadowColor = "#00e5ff";
+            ctx.shadowBlur = 8;
+            ctx.fillStyle = "#00e5ff";
+            ctx.font = "bold 13px Arial";
+            ctx.textAlign = "left";
+            ctx.fillText("SCORE", 14, 17);
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 22px Arial";
+            ctx.fillText(score, 14, 38);
+
+            // Mochi cat icon (small) + coin count
+            const iconX = W - 118, iconY = 27;
+            // Mini cat ear left
+            ctx.fillStyle = "#8b30b8";
+            ctx.beginPath();
+            ctx.moveTo(iconX - 8, iconY - 8);
+            ctx.lineTo(iconX - 13, iconY - 16);
+            ctx.lineTo(iconX - 3, iconY - 10);
+            ctx.closePath(); ctx.fill();
+            // Mini cat ear right
+            ctx.beginPath();
+            ctx.moveTo(iconX + 8, iconY - 8);
+            ctx.lineTo(iconX + 13, iconY - 16);
+            ctx.lineTo(iconX + 3, iconY - 10);
+            ctx.closePath(); ctx.fill();
+            // Mini head visor
+            ctx.fillStyle = "#0d1622";
+            ctx.strokeStyle = "#787890";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(iconX, iconY, 9, 0, Math.PI * 2);
+            ctx.fill(); ctx.stroke();
+            // Mini cyan eyes
+            ctx.shadowColor = "#00ffff"; ctx.shadowBlur = 5;
+            ctx.fillStyle = "#00e5ff";
+            ctx.beginPath(); ctx.ellipse(iconX - 3.2, iconY - 0.5, 2.5, 1.4, 0.25, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(iconX + 3.2, iconY - 0.5, 2.5, 1.4, -0.25, 0, Math.PI * 2); ctx.fill();
+            ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+
+            // Coin count
+            ctx.fillStyle = "#f4c010";
+            ctx.font = "bold 13px Arial";
+            ctx.textAlign = "left";
+            ctx.fillText("COINS", W - 96, 17);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 20px Arial";
+            ctx.fillText(coinCount, W - 96, 38);
+
+            // Speed bar
+            const speedFrac = (gameSpeed - 0.4) / (MAX_SPEED - 0.4);
+            ctx.fillStyle = "rgba(255,255,255,0.08)";
+            ctx.beginPath(); ctx.roundRect(14, 46, W - 28, 5, 3); ctx.fill();
+            const barColor = speedFrac < 0.5 ? "#00e5ff" : speedFrac < 0.8 ? "#b44fff" : "#ff2d78";
+            ctx.shadowColor = barColor; ctx.shadowBlur = 6;
+            ctx.fillStyle = barColor;
+            ctx.beginPath(); ctx.roundRect(14, 46, (W - 28) * speedFrac, 5, 3); ctx.fill();
+            ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+        }
+
+        function drawObstacles() {
+            for (const obs of obstacles) {
+                const { x, y, w } = obstacleScreenPos(obs);
+                const scale = w / 40; // used to scale details
+
+                if (obs.type === 'barrier') {
+                    // ── Subway train door / wall ──
+                    const h = w * 1.6;
+                    const lx = x - w / 2, ty = y - h;
+
+                    // Main body — dark steel
+                    ctx.fillStyle = "#1a1a2a";
+                    ctx.beginPath();
+                    ctx.roundRect(lx, ty, w, h, 3 * scale);
+                    ctx.fill();
+
+                    // Outer frame — bright cyan neon border
+                    ctx.shadowColor = "#00e5ff";
+                    ctx.shadowBlur = 10 * scale;
+                    ctx.strokeStyle = "#00e5ff";
+                    ctx.lineWidth = 2 * scale;
+                    ctx.beginPath();
+                    ctx.roundRect(lx, ty, w, h, 3 * scale);
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+
+                    // Yellow/black hazard stripes at bottom
+                    const stripeH = h * 0.18;
+                    const stripeCount = Math.max(3, Math.round(w / 8));
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(lx, y - stripeH, w, stripeH);
+                    ctx.clip();
+                    for (let s = 0; s < stripeCount * 2; s++) {
+                        ctx.fillStyle = s % 2 === 0 ? "#ffd700" : "#111";
+                        ctx.beginPath();
+                        ctx.moveTo(lx + (s / (stripeCount * 2)) * w * 1.4 - stripeH, y - stripeH);
+                        ctx.lineTo(lx + (s / (stripeCount * 2)) * w * 1.4, y);
+                        ctx.lineTo(lx + ((s + 1) / (stripeCount * 2)) * w * 1.4, y);
+                        ctx.lineTo(lx + ((s + 1) / (stripeCount * 2)) * w * 1.4 - stripeH, y - stripeH);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                    ctx.restore();
+
+                    // Door gap line down the center
+                    ctx.strokeStyle = "rgba(0,220,255,0.4)";
+                    ctx.lineWidth = 1.5 * scale;
+                    ctx.beginPath();
+                    ctx.moveTo(x, ty + h * 0.05);
+                    ctx.lineTo(x, y - stripeH);
+                    ctx.stroke();
+
+                    // Two red warning lights on top corners
+                    for (const lx2 of [lx + w * 0.18, lx + w * 0.82]) {
+                        ctx.shadowColor = "#ff2020";
+                        ctx.shadowBlur = 8 * scale;
+                        ctx.fillStyle = "#ff3030";
+                        ctx.beginPath();
+                        ctx.arc(lx2, ty + 5 * scale, 3.5 * scale, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.shadowBlur = 0;
+                    ctx.shadowColor = "transparent";
+
+                } else {
+                    // ── Electric neon barrier ──
+                    const postH = w * 1.0;
+                    const postW = w * 0.14;
+                    const barY = y - postH * 0.62;
+                    const barThick = w * 0.18;
+
+                    // Posts — dark metal
+                    ctx.fillStyle = "#252535";
+                    ctx.strokeStyle = "#b44fff";
+                    ctx.lineWidth = 1.5 * scale;
+                    for (const px2 of [x - w / 2, x + w / 2 - postW]) {
+                        ctx.beginPath();
+                        ctx.roundRect(px2, y - postH, postW, postH, 2);
+                        ctx.fill();
+                        ctx.stroke();
+                    }
+
+                    // Post top caps — purple glow orbs
+                    ctx.shadowColor = "#c850ff";
+                    ctx.shadowBlur = 12 * scale;
+                    ctx.fillStyle = "#d060ff";
+                    for (const px2 of [x - w / 2 + postW / 2, x + w / 2 - postW / 2]) {
+                        ctx.beginPath();
+                        ctx.arc(px2, y - postH, postW * 0.9, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.shadowBlur = 0;
+
+                    // Energy bar — animated flicker using elapsed time
+                    const flicker = 0.75 + Math.sin(Date.now() * 0.018) * 0.25;
+                    const barGrad = ctx.createLinearGradient(x - w / 2, 0, x + w / 2, 0);
+                    barGrad.addColorStop(0, `rgba(180,80,255,${(0.6 * flicker).toFixed(2)})`);
+                    barGrad.addColorStop(0.5, `rgba(255,255,255,${(0.95 * flicker).toFixed(2)})`);
+                    barGrad.addColorStop(1, `rgba(180,80,255,${(0.6 * flicker).toFixed(2)})`);
+                    ctx.shadowColor = "#c850ff";
+                    ctx.shadowBlur = 14 * scale * flicker;
+                    ctx.fillStyle = barGrad;
+                    ctx.beginPath();
+                    ctx.roundRect(x - w / 2, barY - barThick / 2, w, barThick, barThick / 2);
+                    ctx.fill();
+
+                    // Spark lines on the bar
+                    ctx.strokeStyle = `rgba(255,255,255,${(0.7 * flicker).toFixed(2)})`;
+                    ctx.lineWidth = 1 * scale;
+                    ctx.lineCap = "round";
+                    for (let i = 0; i < 3; i++) {
+                        const sx = x - w * 0.3 + i * w * 0.3;
+                        const jit = (Math.sin(Date.now() * 0.03 + i * 2.1) * barThick * 0.4);
+                        ctx.beginPath();
+                        ctx.moveTo(sx - 3, barY + jit);
+                        ctx.lineTo(sx, barY - jit * 0.5);
+                        ctx.lineTo(sx + 3, barY + jit);
+                        ctx.stroke();
+                    }
+                    ctx.shadowBlur = 0;
+                    ctx.shadowColor = "transparent";
+                }
+            }
+        }
+
+        // ─── Draw ─────────────────────────────────────────────────────
+        // Button hit-test helper
+        const restartBtn = { x: W / 2 - 100, y: 0, w: 200, h: 52 }; // y set in draw
+        const startBtn = { x: W / 2 - 110, y: 0, w: 220, h: 52 };
+
+        function drawRoundedRect(x, y, w, h, r, fill, stroke) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+            if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+            if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke(); }
+        }
+
+        // ─── Mochi Front-Facing (for Game Over screen) ───────────────
+        function drawMochiFront(cx, cy, r) {
+            // Ears drawn first — ring will overlap their base for clean attachment
+            drawMochiEarPair(cx, cy, r);
+
+            // Thick proportional armor ring
+            ctx.fillStyle = "#8a8aaa";
+            ctx.beginPath();
+            ctx.arc(cx, cy, r * 1.28, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#aaaacc";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r * 1.28, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Visor — deep dark navy (perfect circle)
+            ctx.fillStyle = "#0d1622";
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Visor dome shine
+            ctx.fillStyle = "rgba(60,120,220,0.12)";
+            ctx.beginPath();
+            ctx.ellipse(cx - r * 0.18, cy - r * 0.28, r * 0.55, r * 0.42, -0.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Wide "A" logo triangle
+            ctx.shadowColor = "#00ffff"; ctx.shadowBlur = 14;
+            ctx.fillStyle = "#00ccee";
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - r * 0.58);
+            ctx.lineTo(cx - r * 0.42, cy - r * 0.10);
+            ctx.lineTo(cx + r * 0.42, cy - r * 0.10);
+            ctx.closePath(); ctx.fill();
+            // Inner cutout makes it read as "A"
+            ctx.fillStyle = "#0d1622"; ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - r * 0.49);
+            ctx.lineTo(cx - r * 0.12, cy - r * 0.30);
+            ctx.lineTo(cx + r * 0.12, cy - r * 0.30);
+            ctx.closePath(); ctx.fill();
+
+            // Large blade/lens eyes
+            ctx.shadowColor = "#00ffff"; ctx.shadowBlur = 18;
+            ctx.fillStyle = "#00e5ff";
+            ctx.save();
+            ctx.translate(cx - r * 0.35, cy - r * 0.06);
+            ctx.rotate(0.32);
+            ctx.beginPath();
+            ctx.moveTo(-r * 0.45, 0);
+            ctx.quadraticCurveTo(-r * 0.08, -r * 0.25, r * 0.45, 0);
+            ctx.quadraticCurveTo(-r * 0.08, r * 0.20, -r * 0.45, 0);
+            ctx.closePath(); ctx.fill();
+            ctx.restore();
+            ctx.save();
+            ctx.translate(cx + r * 0.35, cy - r * 0.06);
+            ctx.rotate(-0.32);
+            ctx.beginPath();
+            ctx.moveTo(-r * 0.45, 0);
+            ctx.quadraticCurveTo(-r * 0.08, -r * 0.25, r * 0.45, 0);
+            ctx.quadraticCurveTo(-r * 0.08, r * 0.20, -r * 0.45, 0);
+            ctx.closePath(); ctx.fill();
+            ctx.restore();
+            ctx.shadowBlur = 0;
+
+            // Wide smirk
+            ctx.strokeStyle = "#00ddf0";
+            ctx.shadowColor = "#00ffff"; ctx.shadowBlur = 8;
+            ctx.lineWidth = r * 0.13;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.arc(cx, cy + r * 0.46, r * 0.30, 0.14, Math.PI - 0.14);
+            ctx.stroke();
+            ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+
+            // Body below head
+            const bw = r * 1.6, bh = r * 1.6;
+            const bx = cx - bw / 2, bby = cy + r * 1.28 + 3;
+            ctx.fillStyle = "#dcdcea";
+            ctx.strokeStyle = "#8888a8"; ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.roundRect(bx, bby, bw, bh, 5); ctx.fill(); ctx.stroke();
+            // Chest logo
+            const lx = cx, ly = bby + bh * 0.42;
+            ctx.fillStyle = "#8b30b8";
+            ctx.beginPath();
+            ctx.moveTo(lx, ly - r * 0.52);
+            ctx.lineTo(lx - r * 0.38, ly + r * 0.24);
+            ctx.lineTo(lx + r * 0.38, ly + r * 0.24);
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "#c265e0";
+            ctx.beginPath();
+            ctx.moveTo(lx, ly - r * 0.26);
+            ctx.lineTo(lx - r * 0.19, ly + r * 0.12);
+            ctx.lineTo(lx + r * 0.19, ly + r * 0.12);
+            ctx.closePath(); ctx.fill();
+            // Cannon arm (left side on front view)
+            ctx.fillStyle = "#363648";
+            ctx.strokeStyle = "#50506a"; ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.roundRect(bx - r * 0.72, bby + 4, r * 0.55, r, 4);
+            ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "#22222e";
+            ctx.strokeStyle = "#404058"; ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(bx - r * 0.46, bby + 4 + r, r * 0.55, 0, Math.PI * 2);
+            ctx.fill(); ctx.stroke();
+            ctx.shadowColor = "#00aaff"; ctx.shadowBlur = 8;
+            ctx.fillStyle = "#0099ee";
+            for (let i = 0; i < 3; i++) {
+                const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
+                ctx.beginPath();
+                ctx.arc(bx - r * 0.46 + Math.cos(a) * r * 0.3,
+                    bby + 4 + r + Math.sin(a) * r * 0.3, r * 0.13, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.fillStyle = "#00ddff";
+            ctx.beginPath();
+            ctx.arc(bx - r * 0.46, bby + 4 + r, r * 0.15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            // Right arm
+            ctx.fillStyle = "#363648";
+            ctx.strokeStyle = "#50506a"; ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.roundRect(bx + bw + r * 0.18, bby + 4, r * 0.5, r * 0.85, 4);
+            ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "#22222e";
+            ctx.beginPath();
+            ctx.arc(bx + bw + r * 0.43, bby + 4 + r * 0.85, r * 0.32, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowColor = "#00aaff"; ctx.shadowBlur = 6;
+            ctx.fillStyle = "#0099ee";
+            ctx.beginPath();
+            ctx.arc(bx + bw + r * 0.43, bby + 4 + r * 0.85, r * 0.15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+        }
+
+        function drawGameOverScreen() {
+            // Dark vignette overlay
+            ctx.fillStyle = "rgba(0,0,0,0.78)";
+            ctx.fillRect(0, 0, W, H);
+
+            // Card — taller to fit Mochi
+            const cx = W / 2, cy = H / 2 + 20;
+            drawRoundedRect(cx - 162, cy - 210, 324, 400, 18, "#08051a", null);
+            ctx.shadowColor = "#b44fff";
+            ctx.shadowBlur = 18;
+            ctx.strokeStyle = "#b44fff";
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.roundRect(cx - 162, cy - 210, 324, 400, 18); ctx.stroke();
+            ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+
+            // Mochi front-facing at top of card
+            drawMochiFront(cx, cy - 148, 26);
+
+            // Title — hot pink glow
+            ctx.shadowColor = "#ff2d78";
+            ctx.shadowBlur = 22;
+            ctx.fillStyle = "#ff2d78";
+            ctx.font = "bold 44px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("GAME OVER", cx, cy - 36);
+            ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+
+            // Cyan divider line
+            ctx.shadowColor = "#00e5ff"; ctx.shadowBlur = 6;
+            ctx.strokeStyle = "rgba(0,220,255,0.5)";
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(cx - 130, cy - 14); ctx.lineTo(cx + 130, cy - 14); ctx.stroke();
+            ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+
+            // Score label
+            ctx.fillStyle = "rgba(0,220,255,0.7)";
+            ctx.font = "13px Arial";
+            ctx.fillText("SCORE", cx, cy + 14);
+            // Score value
+            ctx.shadowColor = "#ffffff"; ctx.shadowBlur = 8;
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 36px Arial";
+            ctx.fillText(score, cx, cy + 52);
+            ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+
+            // Coins row
+            ctx.fillStyle = "#f4c010";
+            ctx.font = "bold 18px Arial";
+            ctx.fillText("✦  " + coinCount + " coins", cx, cy + 86);
+
+            // Best score
+            ctx.fillStyle = "rgba(180,80,255,0.85)";
+            ctx.font = "14px Arial";
+            ctx.fillText("BEST  " + highScore, cx, cy + 112);
+
+            // Restart button — purple neon
+            const btnY = cy + 136;
+            restartBtn.y = btnY;
+            ctx.shadowColor = "#b44fff"; ctx.shadowBlur = 16;
+            drawRoundedRect(restartBtn.x, btnY, restartBtn.w, restartBtn.h, 10, "#2a0845", null);
+            ctx.strokeStyle = "#b44fff"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.roundRect(restartBtn.x, btnY, restartBtn.w, restartBtn.h, 10); ctx.stroke();
+            ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 20px Arial";
+            ctx.fillText("↺  RESTART", cx, btnY + 34);
+        }
+
+        function drawStartScreen() {
+            ctx.fillStyle = "rgba(0,0,0,0.65)";
+            ctx.fillRect(0, 0, W, H);
+
+            const cx = W / 2, cy = H / 2;
+
+            // Card
+            drawRoundedRect(cx - 172, cy - 162, 344, 324, 20, "#06030f", null);
+            ctx.shadowColor = "#00e5ff";
+            ctx.shadowBlur = 20;
+            ctx.strokeStyle = "#00e5ff";
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.roundRect(cx - 172, cy - 162, 344, 324, 20); ctx.stroke();
+            ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+
+            // Title
+            ctx.shadowColor = "#00e5ff"; ctx.shadowBlur = 24;
+            ctx.fillStyle = "#00e5ff";
+            ctx.font = "bold 40px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("MOCHI SURFER", cx, cy - 105);
+            ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+
+            // Subtitle
+            ctx.fillStyle = "rgba(180,80,255,0.9)";
+            ctx.font = "13px Arial";
+            ctx.fillText("MOCHI SKATE RUN", cx, cy - 82);
+
+            // Divider
+            ctx.strokeStyle = "rgba(180,80,255,0.4)";
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(cx - 130, cy - 68); ctx.lineTo(cx + 130, cy - 68); ctx.stroke();
+
+            // Controls
+            const rows = [
+                ["← →", "Switch lanes"],
+                ["↑ / SPC", "Jump"],
+                ["↓ / S", "Slide"],
+            ];
+            rows.forEach(([key, desc], i) => {
+                const ry = cy - 44 + i * 26;
+                ctx.fillStyle = "#00e5ff";
+                ctx.font = "bold 14px Arial";
+                ctx.textAlign = "right";
+                ctx.fillText(key, cx - 8, ry);
+                ctx.fillStyle = "rgba(200,200,220,0.85)";
+                ctx.font = "14px Arial";
+                ctx.textAlign = "left";
+                ctx.fillText(desc, cx + 8, ry);
+            });
+
+            ctx.textAlign = "center";
+            ctx.strokeStyle = "rgba(0,220,255,0.2)";
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(cx - 130, cy + 30); ctx.lineTo(cx + 130, cy + 30); ctx.stroke();
+
+            ctx.fillStyle = "rgba(180,180,200,0.75)";
+            ctx.font = "13px Arial";
+            ctx.fillText("Jump over barriers  •  Slide under bars", cx, cy + 50);
+            ctx.fillText("Collect gold coins for bonus points!", cx, cy + 70);
+
+            // Start button — cyan neon
+            const btnY = cy + 96;
+            startBtn.y = btnY;
+            ctx.shadowColor = "#00e5ff"; ctx.shadowBlur = 18;
+            drawRoundedRect(startBtn.x, btnY, startBtn.w, startBtn.h, 12, "#002a30", null);
+            ctx.strokeStyle = "#00e5ff"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.roundRect(startBtn.x, btnY, startBtn.w, startBtn.h, 12); ctx.stroke();
+            ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+            ctx.fillStyle = "#00e5ff";
+            ctx.font = "bold 22px Arial";
+            ctx.fillText("▶  TAP TO PLAY", cx, btnY + 35);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, W, H);
+
+            // Apply screen shake
+            const { sx, sy } = getShakeOffset();
+            if (sx !== 0 || sy !== 0) {
+                ctx.save();
+                ctx.translate(sx, sy);
+            }
+
+            drawTrack();
+            drawTrail();
+            drawCoins();
+            drawObstacles();
+            drawPlayer();
+            drawParticles();
+
+            if (sx !== 0 || sy !== 0) ctx.restore();
+
+            drawHUD();
+            drawBanner();
+            if (gameState === 'start') drawStartScreen();
+            if (gameState === 'gameover') drawGameOverScreen();
+        }
+
+        // ─── Reset ────────────────────────────────────────────────────
+        function resetGame() {
+            score = 0;
+            coinCount = 0;
+            elapsedTime = 0;
+            gameSpeed = 0.4;
+            scrollOffset = 0;
+            cityScrollFar = 0;
+            cityScrollNear = 0;
+            obstacles = [];
+            coins = [];
+            particles = [];
+            banner = null;
+            trail = [];
+            lastMilestone = 0;
+            window._speed50shown = false;
+            obstacleTimer = -2000;
+            coinTimer = -800;
+            gameOver = false;
+            gameState = 'playing';
+            if (typeof window.mochiOnRestart === 'function') window.mochiOnRestart();
+
+            player.lane = 1;
+            player.targetLane = 1;
+            player.laneX = laneXAt(1, PLAYER_Y_BASE);
+            player.targetX = player.laneX;
+            player.x = player.laneX;
+            player.jumping = false;
+            player.jumpVY = 0;
+            player.jumpY = 0;
+            player.sliding = false;
+            player.slideTimer = 0;
+            player.runFrame = 0;
+            player.runTimer = 0;
+        }
+
+        // ─── Click / Tap handler ────────────────────────────────────
+        function getCanvasPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = W / rect.width;
+            const scaleY = H / rect.height;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+        }
+
+        function isInsideBtn(pos, btn) {
+            return pos.x >= btn.x && pos.x <= btn.x + btn.w &&
+                pos.y >= btn.y && pos.y <= btn.y + btn.h;
+        }
+
+        function handleTap(e) {
+            e.preventDefault();
+            const pos = getCanvasPos(e);
+            if (gameState === 'start') { resetGame(); return; }
+            if (gameState === 'gameover' && isInsideBtn(pos, restartBtn)) { resetGame(); return; }
+        }
+
+        canvas.addEventListener('click', handleTap);
+        canvas.addEventListener('touchstart', handleTap, { passive: false });
+
+        // ─── Main Game Loop ───────────────────────────────────────────
+        function gameLoop(timestamp) {
+            const dt = timestamp - lastTime;
+            lastTime = timestamp;
+
+            update(dt);
+            draw();
+
+            animFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // ─── Start ────────────────────────────────────────────────────
+        function startGame() {
+            // Init player visual position for the start screen preview
+            player.laneX = laneXAt(1, PLAYER_Y_BASE);
+            player.targetX = player.laneX;
+            player.x = player.laneX;
+            gameState = 'start';
+            lastTime = performance.now();
+            animFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        startGame();
+    </script>
+    <script type="module">
+        // ─── GenLayer Leaderboard Integration ──────────────────────────
+        import { createClient } from 'https://esm.sh/genlayer-js@0.27.9';
+        import { testnetBradbury } from 'https://esm.sh/genlayer-js@0.27.9/chains';
+
+        const CONTRACT = '0x1A7346566824c46F29e66f77c0499dA60F08Ef1F';
+
+        // Read-only client — no wallet required for leaderboard reads
+        const readClient = createClient({ chain: testnetBradbury });
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function setStatus(msg, color) {
+            const s = document.getElementById('gl-status');
+            s.textContent = msg;
+            s.style.color = color || 'rgba(180,180,180,0.9)';
+        }
+
+        async function loadTopScores() {
+            const list = document.getElementById('gl-scores-list');
+            list.innerHTML = '<div class="gl-loading">Loading on-chain data…</div>';
+            try {
+                const scores = await readClient.readContract({
+                    address: CONTRACT,
+                    functionName: 'get_top_scores',
+                    args: [10]
+                });
+                if (!scores || scores.length === 0) {
+                    list.innerHTML = '<div class="gl-no-scores">No scores yet — be the first!</div>';
+                    return;
+                }
+                list.innerHTML = scores.map((s, i) =>
+                    `<div class="gl-score-row">
+                        <span class="gl-rank">#${i + 1}</span>
+                        <span class="gl-uname">${escapeHtml(s.name)}</span>
+                        <span class="gl-score-val">${Number(s.score).toLocaleString()}</span>
+                    </div>`
+                ).join('');
+            } catch (err) {
+                list.innerHTML = `<div class="gl-no-scores">Could not load: ${escapeHtml((err.message || String(err)).substring(0, 80))}</div>`;
+            }
+        }
+
+        // Called by game script when game over
+        window.mochiOnGameOver = (scoreVal) => {
+            const panel = document.getElementById('gl-panel');
+            panel.dataset.score = String(scoreVal);
+            panel.style.display = 'flex';
+        };
+
+        // Called by game script on restart
+        window.mochiOnRestart = () => {
+            document.getElementById('gl-panel').style.display = 'none';
+            document.getElementById('gl-leaderboard-overlay').style.display = 'none';
+            document.getElementById('gl-submit-btn').disabled = false;
+            setStatus('');
+            document.getElementById('gl-name').value = '';
+        };
+
+        // Submit score via MetaMask
+        document.getElementById('gl-submit-btn').addEventListener('click', async () => {
+            const nameInput = document.getElementById('gl-name');
+            const name = nameInput.value.trim();
+            const scoreVal = parseInt(document.getElementById('gl-panel').dataset.score || '0');
+            const btn = document.getElementById('gl-submit-btn');
+
+            if (name.length < 1 || name.length > 20) {
+                setStatus('Name must be 1–20 characters', '#ff2d78');
+                return;
+            }
+            if (!window.ethereum) {
+                setStatus('MetaMask not found — install it to submit on-chain', '#ff2d78');
+                return;
+            }
+
+            btn.disabled = true;
+            try {
+                setStatus('Connecting wallet…');
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                const walletAddr = accounts[0];
+
+                const writeClient = createClient({ chain: testnetBradbury, account: walletAddr });
+                await writeClient.connect('testnetBradbury');
+
+                setStatus('Submitting… AI validators are reviewing your username ✦');
+                const txHash = await writeClient.writeContract({
+                    address: CONTRACT,
+                    functionName: 'submit_score',
+                    args: [name, scoreVal],
+                    value: BigInt(0)
+                });
+
+                setStatus('TX sent — waiting for validator consensus…');
+                await writeClient.waitForTransactionReceipt({
+                    hash: txHash,
+                    status: 'ACCEPTED',
+                    interval: 5000,
+                    retries: 60
+                });
+                setStatus('✓ Score saved on-chain!', '#39ff8e');
+            } catch (err) {
+                const msg = (err.message || String(err));
+                if (msg.toLowerCase().includes('rejected') || msg.toLowerCase().includes('denied')) {
+                    setStatus('Transaction rejected by user', '#ff6b6b');
+                } else if (msg.toLowerCase().includes('username rejected')) {
+                    setStatus('Username flagged by AI moderation', '#ff2d78');
+                } else {
+                    setStatus('Error: ' + msg.substring(0, 60), '#ff6b6b');
+                }
+                btn.disabled = false;
+            }
+        });
+
+        // Open leaderboard overlay
+        document.getElementById('gl-board-btn').addEventListener('click', () => {
+            document.getElementById('gl-leaderboard-overlay').style.display = 'flex';
+            loadTopScores();
+        });
+
+        // Close leaderboard overlay
+        document.getElementById('gl-lb-close').addEventListener('click', () => {
+            document.getElementById('gl-leaderboard-overlay').style.display = 'none';
+        });
+    </script>
+</body>
+
+</html>
