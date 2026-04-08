@@ -2903,7 +2903,20 @@
                     setStatus('Submitting…');
                 }
 
-                // Switch MetaMask to GenLayer testnet manually
+                // Check GEN balance — warn if zero so users know to visit faucet
+                try {
+                    const balHex = await prov.request({ method: 'eth_getBalance', params: [walletAddr, 'latest'] });
+                    const bal = BigInt(balHex);
+                    if (bal === 0n) {
+                        const s = document.getElementById('gl-status');
+                        s.innerHTML = '⚠ You need a tiny bit of GEN for gas. Get free testnet GEN at <a href="https://testnet-faucet.genlayer.foundation" target="_blank" rel="noopener" style="color:#00dcff;text-decoration:underline">testnet-faucet.genlayer.foundation</a> then retry.';
+                        s.style.color = '#ffb347';
+                        btn.disabled = false;
+                        return;
+                    }
+                } catch (_) { /* balance check is best-effort */ }
+
+                // Switch to GenLayer testnet manually
                 // (avoids the SDK's connect() which tries to install a MetaMask snap)
                 setStatus('Switching to GenLayer network…');
                 await ensureOnGenLayerChain();
@@ -2915,7 +2928,7 @@
                 });
                 // Do NOT call writeClient.connect() — chain already switched above
 
-                setStatus('Submitting… AI validators are reviewing your username ✦');
+                setStatus('Submitting… AI validators are reviewing your username ✦ (approve in wallet)');
                 let txHash;
                 try {
                     txHash = await writeClient.writeContract({
