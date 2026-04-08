@@ -2512,15 +2512,17 @@
 
         // ─── Chain constants ───────────────────────────────────────────
         // testnetBradbury chain ID = 4221 = 0x107D
-        const CHAIN_ID_HEX = '0x' + testnetBradbury.id.toString(16);
+        // testnetBradbury.id = 4221 = 0x107D
+        // MUST be uppercase — MetaMask returns '0x107D' and the SDK does strict r !== a comparison inside Le()
+        const CHAIN_ID_HEX = '0x' + testnetBradbury.id.toString(16).toUpperCase();
         const CHAIN_RPC = (testnetBradbury.rpcUrls?.default?.http?.[0]) || 'https://rpc-bradbury.genlayer.com';
 
-        // Manual MetaMask chain switch — bypasses the SDK's connect() which tries
-        // to install a MetaMask snap and makes eth_chainId calls that fail on the RPC.
+        // Manual chain switch — bypasses the SDK's connect() / snap install flow.
+        // After switching we verify the chain ID matches to confirm the switch took effect.
         async function ensureOnGenLayerChain() {
             const prov = window.activeProvider || window.ethereum;
             const current = await prov.request({ method: 'eth_chainId' });
-            if (current.toLowerCase() === CHAIN_ID_HEX.toLowerCase()) return; // already on correct chain
+            if (current.toUpperCase() === CHAIN_ID_HEX.toUpperCase()) return; // already correct
             try {
                 await prov.request({
                     method: 'wallet_switchEthereumChain',
@@ -2541,6 +2543,11 @@
                 } else {
                     throw switchErr;
                 }
+            }
+            // Verify switch took effect
+            const after = await prov.request({ method: 'eth_chainId' });
+            if (after.toUpperCase() !== CHAIN_ID_HEX.toUpperCase()) {
+                throw new Error('Network switch failed — wallet is still on chain ' + after + '. Please switch to GenLayer Testnet Bradbury manually.');
             }
         }
 
@@ -2898,12 +2905,31 @@
                 // Do NOT call writeClient.connect() — chain already switched above
 
                 setStatus('Submitting… AI validators are reviewing your username ✦');
-                const txHash = await writeClient.writeContract({
-                    address: CONTRACT,
-                    functionName: 'submit_score',
-                    args: [name, scoreVal],
-                    value: BigInt(0)
-                });
+                let txHash;
+                try {
+                    txHash = await writeClient.writeContract({
+                        address: CONTRACT,
+                        functionName: 'submit_score',
+                        args: [name, scoreVal],
+                        value: BigInt(0)
+                    });
+                } catch (writeErr) {
+                    // If the SDK's internal chain check fails (case mismatch or slight timing race),
+                    // re-run the chain switch once and retry.
+                    const em = writeErr.message || String(writeErr);
+                    if (em.toLowerCase().includes('wallet is on chain') || em.toLowerCase().includes('wrong chain')) {
+                        setStatus('Re-syncing network…');
+                        await ensureOnGenLayerChain();
+                        txHash = await writeClient.writeContract({
+                            address: CONTRACT,
+                            functionName: 'submit_score',
+                            args: [name, scoreVal],
+                            value: BigInt(0)
+                        });
+                    } else {
+                        throw writeErr;
+                    }
+                }
 
                 setStatus('TX sent — waiting for validator consensus…');
                 await writeClient.waitForTransactionReceipt({
@@ -2923,7 +2949,7 @@
                 } else if (msg.toLowerCase().includes('username rejected')) {
                     setStatus('Username flagged by AI moderation', '#ff2d78');
                 } else {
-                    setStatus('Error: ' + msg.substring(0, 60), '#ff6b6b');
+                    setStatus('Error: ' + msg.substring(0, 120), '#ff6b6b');
                 }
                 btn.disabled = false;
             }
