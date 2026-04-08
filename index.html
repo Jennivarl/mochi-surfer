@@ -334,17 +334,17 @@
         <!-- Wallet connect screen (shown first) -->
         <div id="wallet-overlay">
             <div class="wallet-card">
-                <div class="wallet-title">⛓ MOCHI SURFER</div>
-                <div class="wallet-sub">Connect wallet to save your scores on-chain via GenLayer</div>
+                <div class="wallet-title">🏆 MOCHI SURFER</div>
+                <div class="wallet-sub">Connect wallet to save your scores to the leaderboard</div>
                 <button id="wallet-connect-btn">🦊 Connect MetaMask</button>
                 <div id="wallet-overlay-status"></div>
-                <button id="wallet-skip-btn">Play as Guest (no wallet)</button>
+                <button id="wallet-skip-btn">Play without wallet</button>
             </div>
         </div>
 
         <!-- GenLayer blockchain submit panel (shown on game over) -->
         <div id="gl-panel">
-            <div class="gl-title">⛓ GENLAYER ON-CHAIN LEADERBOARD</div>
+            <div class="gl-title">🏆 LEADERBOARD</div>
             <div id="gl-input-row">
                 <input id="gl-name" type="text" maxlength="20" placeholder="Your name (1–20 chars)…" autocomplete="off"
                     spellcheck="false" />
@@ -357,8 +357,8 @@
         <!-- Full-screen leaderboard overlay -->
         <div id="gl-leaderboard-overlay">
             <div class="gl-lb-card">
-                <div class="gl-lb-title">🏆 ON-CHAIN TOP SCORES</div>
-                <div class="gl-lb-subtitle">Powered by GenLayer AI · testnet-bradbury</div>
+                <div class="gl-lb-title">🏆 TOP SCORES</div>
+                <div class="gl-lb-subtitle">Global leaderboard</div>
                 <div id="gl-scores-list"></div>
                 <button id="gl-lb-close">✕ Close</button>
             </div>
@@ -1888,9 +1888,9 @@
 
             // Controls
             const rows = [
-                ["← →", "Switch lanes"],
-                ["↑ / SPC", "Jump"],
-                ["↓ / S", "Slide"],
+                ["← →", "Swipe left / right"],
+                ["↑", "Swipe up to jump"],
+                ["↓", "Swipe down to slide"],
             ];
             rows.forEach(([key, desc], i) => {
                 const ry = cy - 44 + i * 26;
@@ -1911,8 +1911,8 @@
 
             ctx.fillStyle = "rgba(180,180,200,0.75)";
             ctx.font = "13px Arial";
-            ctx.fillText("Jump over barriers  •  Slide under bars", cx, cy + 50);
-            ctx.fillText("Collect gold coins for bonus points!", cx, cy + 70);
+            ctx.fillText("Jump walls  •  Slide under electric bars", cx, cy + 50);
+            ctx.fillText("Collect coins for bonus points!", cx, cy + 70);
 
             // Start button — cyan neon
             const btnY = cy + 96;
@@ -2079,11 +2079,16 @@
 
         walletConnectBtn.addEventListener('click', async () => {
             if (!window.ethereum) {
-                // On mobile, open this page inside MetaMask's built-in browser
-                const pageUrl = encodeURIComponent(window.location.href);
-                const mmLink = 'https://metamask.app.link/dapp/' + window.location.host + window.location.pathname;
-                setOverlayStatus('Opening MetaMask…', '#f4c010');
-                window.location.href = mmLink;
+                const host = window.location.host || 'vmsg.itch.io';
+                const path = window.location.pathname || '/';
+                const mmUrl = 'https://metamask.app.link/dapp/' + host + path;
+                setOverlayStatus(
+                    '📱 Open this game inside the MetaMask app browser, or install MetaMask on desktop.',
+                    '#f4c010'
+                );
+                // Show a tappable link
+                const s = document.getElementById('wallet-overlay-status');
+                s.innerHTML = '📱 <a href="' + mmUrl + '" target="_blank" style="color:#00dcff">Tap here to open in MetaMask</a><br><small style="opacity:.7">Or install MetaMask on desktop</small>';
                 return;
             }
             walletConnectBtn.disabled = true;
