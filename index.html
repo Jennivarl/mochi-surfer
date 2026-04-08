@@ -2393,10 +2393,10 @@
                         method: 'wallet_addEthereumChain',
                         params: [{
                             chainId: CHAIN_ID_HEX,
-                            chainName: testnetBradbury.name || 'GenLayer Testnet Bradbury',
-                            rpcUrls: [CHAIN_RPC],
-                            nativeCurrency: testnetBradbury.nativeCurrency || { name: 'GEN', symbol: 'GEN', decimals: 18 },
-                            blockExplorerUrls: []
+                            chainName: 'GenLayer Testnet Bradbury',
+                            rpcUrls: ['https://rpc-bradbury.genlayer.com'],
+                            nativeCurrency: { name: 'GEN', symbol: 'GEN', decimals: 18 },
+                            blockExplorerUrls: ['https://explorer-bradbury.genlayer.com']
                         }]
                     });
                 } else {
