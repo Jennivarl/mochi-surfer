@@ -495,12 +495,13 @@
                 <hr class="session-divider">
                 <div class="session-label">TOURNAMENT CODE</div>
                 <div id="session-row">
-                    <input id="session-code-input" type="text" maxlength="6" placeholder="Optional…" autocomplete="off"
-                        spellcheck="false">
-                    <button id="generate-code-btn" title="Generate random code">🎲</button>
+                    <input id="session-code-input" type="text" maxlength="6" placeholder="Paste code here…"
+                        autocomplete="off" spellcheck="false">
+                    <button id="generate-code-btn" title="Generate a new tournament code (mod only)">🎲</button>
                     <button id="session-join-btn">Join</button>
                 </div>
-                <div id="session-status">Enter or generate a code to join a private session</div>
+                <div id="session-status">Members: paste the code → Join&nbsp;&nbsp;|&nbsp;&nbsp;Mods: 🎲 to generate
+                </div>
                 <!-- Guest username (shown when in a session + no wallet) -->
                 <div id="guest-name-row">
                     <div class="session-divider" style="margin:0"></div>
@@ -2445,7 +2446,7 @@
 
         function joinSession(raw) {
             window.sessionCode = raw;
-            sessionStatus.textContent = '✓ Session: ' + raw + ' — ready to play';
+            sessionStatus.textContent = '✓ Joined session: ' + raw + ' — scores will be tagged to this code';
             sessionStatus.style.color = '#39ff8e';
             sessionJoinBtn.textContent = 'Leave';
             sessionJoinBtn.style.borderColor = '#39ff8e';
@@ -2457,7 +2458,7 @@
             window.sessionCode = null;
             window.guestName = null;
             sessionInput.value = '';
-            sessionStatus.textContent = 'Enter or generate a code to join a private session';
+            sessionStatus.textContent = 'Members: paste the code → Join  |  Mods: 🎲 to generate';
             sessionStatus.style.color = 'rgba(180,180,180,0.7)';
             sessionJoinBtn.textContent = 'Join';
             sessionJoinBtn.style.borderColor = '';
@@ -2482,6 +2483,13 @@
             for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
             sessionInput.value = code;
             joinSession(code);
+            // Remind mod to share
+            setTimeout(() => {
+                if (window.sessionCode === code) {
+                    sessionStatus.textContent = '\u2713 Code: ' + code + ' \u2014 share this with your players!';
+                    sessionStatus.style.color = '#39ff8e';
+                }
+            }, 1200);
         };
 
         // ─── Wallet Connect Overlay ────────────────────────────────────
