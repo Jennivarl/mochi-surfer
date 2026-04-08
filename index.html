@@ -310,6 +310,95 @@
             cursor: default;
         }
 
+        /* Wallet picker modal */
+        #wallet-picker-backdrop {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.72);
+            z-index: 120;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #wallet-picker-backdrop.open {
+            display: flex;
+        }
+
+        #wallet-picker-modal {
+            background: #0d0d1a;
+            border: 1.5px solid rgba(0, 220, 255, 0.35);
+            border-radius: 12px;
+            padding: 20px 16px 16px;
+            width: 88%;
+            max-width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #wallet-picker-title {
+            color: #00dcff;
+            font-size: 13px;
+            font-weight: bold;
+            text-align: center;
+            letter-spacing: 1px;
+            font-family: Arial, sans-serif;
+        }
+
+        .wallet-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 10px 12px;
+            cursor: pointer;
+            font-family: Arial, sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            color: #e0e0ff;
+            transition: background 0.15s;
+        }
+
+        .wallet-option:hover {
+            background: rgba(0, 220, 255, 0.08);
+            border-color: rgba(0, 220, 255, 0.4);
+        }
+
+        .wallet-option img {
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            object-fit: contain;
+        }
+
+        .wallet-option-icon {
+            font-size: 22px;
+            line-height: 1;
+        }
+
+        #wallet-picker-cancel {
+            background: transparent;
+            border: none;
+            color: rgba(180, 180, 200, 0.6);
+            font-size: 11px;
+            cursor: pointer;
+            text-align: center;
+            padding: 4px;
+            font-family: Arial, sans-serif;
+        }
+
+        #wallet-picker-no-wallet {
+            display: none;
+            font-size: 11px;
+            color: rgba(180, 180, 180, 0.8);
+            text-align: center;
+            line-height: 1.6;
+            font-family: Arial, sans-serif;
+        }
+
         #wallet-overlay-status {
             color: rgba(180, 180, 180, 0.85);
             font-size: 11px;
@@ -491,8 +580,25 @@
             <div class="wallet-card">
                 <div class="wallet-title">MOCHI SURFER</div>
                 <div class="wallet-sub">Connect wallet to save your scores to the leaderboard</div>
-                <button id="wallet-connect-btn">🦊 Connect MetaMask</button>
+                <button id="wallet-connect-btn">⬡ Connect Wallet</button>
                 <div id="wallet-overlay-status"></div>
+
+                <!-- Wallet picker modal (inside overlay card) -->
+                <div id="wallet-picker-backdrop">
+                    <div id="wallet-picker-modal">
+                        <div id="wallet-picker-title">CHOOSE WALLET</div>
+                        <div id="wallet-picker-list"></div>
+                        <div id="wallet-picker-no-wallet">
+                            No browser wallet detected.<br>
+                            Install <a href="https://metamask.io" target="_blank" rel="noopener"
+                                style="color:#00dcff">MetaMask</a>,
+                            <a href="https://www.coinbase.com/wallet" target="_blank" rel="noopener"
+                                style="color:#00dcff">Coinbase Wallet</a>,
+                            or another EVM extension, then refresh.
+                        </div>
+                        <button id="wallet-picker-cancel">Cancel</button>
+                    </div>
+                </div>
                 <button id="wallet-skip-btn">Play without wallet</button>
                 <hr class="session-divider">
                 <div class="session-label">TOURNAMENT CODE</div>
@@ -2412,16 +2518,17 @@
         // Manual MetaMask chain switch — bypasses the SDK's connect() which tries
         // to install a MetaMask snap and makes eth_chainId calls that fail on the RPC.
         async function ensureOnGenLayerChain() {
-            const current = await window.ethereum.request({ method: 'eth_chainId' });
+            const prov = window.activeProvider || window.ethereum;
+            const current = await prov.request({ method: 'eth_chainId' });
             if (current.toLowerCase() === CHAIN_ID_HEX.toLowerCase()) return; // already on correct chain
             try {
-                await window.ethereum.request({
+                await prov.request({
                     method: 'wallet_switchEthereumChain',
                     params: [{ chainId: CHAIN_ID_HEX }]
                 });
             } catch (switchErr) {
                 if (switchErr.code === 4902 || switchErr.code === -32603) {
-                    await window.ethereum.request({
+                    await prov.request({
                         method: 'wallet_addEthereumChain',
                         params: [{
                             chainId: CHAIN_ID_HEX,
@@ -2543,27 +2650,100 @@
             applySessionUI();
         }
 
-        walletConnectBtn.addEventListener('click', async () => {
-            if (!window.ethereum) {
-                const host = window.location.host || 'vmsg.itch.io';
-                const path = window.location.pathname || '/';
-                const mmUrl = 'https://metamask.app.link/dapp/' + host + path;
-                const s = document.getElementById('wallet-overlay-status');
-                s.innerHTML = '📱 <a href="' + mmUrl + '" target="_blank" style="color:#00dcff">Tap here to open in MetaMask</a><br><small style="opacity:.7">Or install MetaMask on desktop</small>';
+        // ─── EIP-6963 multi-wallet detection ─────────────────────────
+        const eip6963Providers = [];
+        window.addEventListener('eip6963:announceProvider', (event) => {
+            const info = event.detail?.info;
+            const provider = event.detail?.provider;
+            if (!info || !provider) return;
+            // Avoid duplicates by rdns
+            if (eip6963Providers.some(p => p.info.rdns === info.rdns)) return;
+            eip6963Providers.push({ info, provider });
+        });
+        // Trigger all installed wallets to announce themselves
+        window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+        // ─── Wallet picker logic ──────────────────────────────────────
+        const walletPickerBackdrop = document.getElementById('wallet-picker-backdrop');
+        const walletPickerList = document.getElementById('wallet-picker-list');
+        const walletPickerNoWallet = document.getElementById('wallet-picker-no-wallet');
+        const walletPickerCancel = document.getElementById('wallet-picker-cancel');
+
+        walletPickerCancel.addEventListener('click', () => {
+            walletPickerBackdrop.classList.remove('open');
+        });
+
+        function buildWalletOptions() {
+            walletPickerList.innerHTML = '';
+            const opts = [];
+
+            // EIP-6963 discovered wallets (highest priority — exact identity)
+            for (const { info, provider } of eip6963Providers) {
+                opts.push({ name: info.name, icon: info.icon, provider });
+            }
+
+            // Fallback: window.ethereum (legacy injected, only if not already listed)
+            if (window.ethereum && eip6963Providers.length === 0) {
+                const name = window.ethereum.isMetaMask ? 'MetaMask'
+                    : window.ethereum.isCoinbaseWallet ? 'Coinbase Wallet'
+                        : window.ethereum.isRabby ? 'Rabby'
+                            : window.ethereum.isBraveWallet ? 'Brave Wallet'
+                                : 'Browser Wallet';
+                opts.push({ name, icon: null, provider: window.ethereum });
+            }
+
+            if (opts.length === 0) {
+                walletPickerNoWallet.style.display = 'block';
                 return;
             }
+            walletPickerNoWallet.style.display = 'none';
+
+            for (const opt of opts) {
+                const btn = document.createElement('button');
+                btn.className = 'wallet-option';
+                const iconEl = document.createElement('span');
+                if (opt.icon && opt.icon.startsWith('data:')) {
+                    const img = document.createElement('img');
+                    img.src = opt.icon;
+                    img.alt = opt.name;
+                    iconEl.appendChild(img);
+                } else {
+                    iconEl.className = 'wallet-option-icon';
+                    iconEl.textContent = '⬡';
+                }
+                const label = document.createElement('span');
+                label.textContent = opt.name;
+                btn.appendChild(iconEl);
+                btn.appendChild(label);
+                btn.addEventListener('click', () => connectWithProvider(opt.provider, opt.name));
+                walletPickerList.appendChild(btn);
+            }
+        }
+
+        async function connectWithProvider(provider, name) {
+            walletPickerBackdrop.classList.remove('open');
             walletConnectBtn.disabled = true;
-            setOverlayStatus('Connecting…');
+            setOverlayStatus('Connecting to ' + name + '…');
             try {
-                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                const accounts = await provider.request({ method: 'eth_requestAccounts' });
                 window.walletAddr = accounts[0];
-                window.guestName = null; // wallet takes priority
-                setOverlayStatus('✓ Connected: ' + accounts[0].slice(0, 6) + '…' + accounts[0].slice(-4), '#39ff8e');
+                window.activeProvider = provider;
+                window.guestName = null;
+                setOverlayStatus('✓ ' + name + ': ' + accounts[0].slice(0, 6) + '…' + accounts[0].slice(-4), '#39ff8e');
                 setTimeout(dismissWalletOverlay, 700);
             } catch {
                 walletConnectBtn.disabled = false;
                 setOverlayStatus('Cancelled — try again or play as guest', '#ff6b6b');
             }
+        }
+
+        walletConnectBtn.addEventListener('click', () => {
+            // Re-request announcements to pick up any newly installed wallets
+            window.dispatchEvent(new Event('eip6963:requestProvider'));
+            setTimeout(() => {
+                buildWalletOptions();
+                walletPickerBackdrop.classList.add('open');
+            }, 60);
         });
 
         // "Play without wallet" — if session code active, ask for guest name first
@@ -2684,8 +2864,9 @@
                 setStatus('Name must be 1–' + maxLen + ' characters', '#ff2d78');
                 return;
             }
-            if (!window.ethereum) {
-                setStatus('MetaMask not found — install it to submit on-chain', '#ff2d78');
+            const prov = window.activeProvider || window.ethereum;
+            if (!prov) {
+                setStatus('No wallet found — install MetaMask or another EVM wallet', '#ff2d78');
                 return;
             }
 
@@ -2696,9 +2877,10 @@
                 let walletAddr = window.walletAddr;
                 if (!walletAddr) {
                     setStatus('Connecting wallet…');
-                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    const accounts = await prov.request({ method: 'eth_requestAccounts' });
                     walletAddr = accounts[0];
                     window.walletAddr = walletAddr;
+                    window.activeProvider = prov;
                 } else {
                     setStatus('Submitting…');
                 }
@@ -2711,7 +2893,7 @@
                 const writeClient = createClient({
                     chain: testnetBradbury,
                     account: walletAddr,
-                    provider: window.ethereum
+                    provider: window.activeProvider || window.ethereum
                 });
                 // Do NOT call writeClient.connect() — chain already switched above
 
