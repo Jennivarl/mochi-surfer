@@ -112,6 +112,37 @@
             cursor: default;
         }
 
+        /* In-game profile chip (top-left, above canvas) */
+        #hud-profile {
+            display: none;
+            position: absolute;
+            top: 7px;
+            left: 8px;
+            z-index: 5;
+            font-family: 'Orbitron', Arial, sans-serif;
+            font-size: 8px;
+            letter-spacing: 0.5px;
+            color: rgba(0, 220, 255, 0.7);
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(0, 220, 255, 0.3);
+            border-radius: 4px;
+            padding: 3px 8px 3px 6px;
+            pointer-events: none;
+            max-width: 185px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.5;
+        }
+
+        #hud-profile .hud-uname {
+            display: block;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
         #gl-status {
             color: rgba(180, 180, 180, 0.9);
             font-size: 10px;
@@ -619,6 +650,9 @@
                 </div>
             </div>
         </div>
+
+        <!-- In-game profile chip -->
+        <div id="hud-profile"></div>
 
         <!-- GenLayer blockchain submit panel (shown on game over) -->
         <div id="gl-panel">
@@ -1842,55 +1876,41 @@
             ctx.shadowBlur = 0;
             ctx.shadowColor = "transparent";
 
-            // Score — cyan glow
+            // ─ SCORE + COINS grouped on the right side ─────────────────────
+
+            // SCORE column — right-aligned to W-90
             ctx.shadowColor = "#00e5ff";
             ctx.shadowBlur = 8;
             ctx.fillStyle = "#00e5ff";
-            ctx.font = "bold 13px Arial";
-            ctx.textAlign = "left";
-            ctx.fillText("SCORE", 14, 17);
+            ctx.font = "bold 11px Arial";
+            ctx.textAlign = "right";
+            ctx.fillText("SCORE", W - 90, 17);
             ctx.shadowBlur = 0;
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 22px Arial";
-            ctx.fillText(Math.floor(score), 14, 38);
+            ctx.fillText(Math.floor(score), W - 90, 38);
 
-            // Mochi cat icon (small) + coin count
-            const iconX = W - 118, iconY = 27;
-            // Mini cat ear left
-            ctx.fillStyle = "#8b30b8";
+            // Thin vertical divider between score and coins
+            ctx.strokeStyle = "rgba(255,255,255,0.2)";
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(iconX - 8, iconY - 8);
-            ctx.lineTo(iconX - 13, iconY - 16);
-            ctx.lineTo(iconX - 3, iconY - 10);
-            ctx.closePath(); ctx.fill();
-            // Mini cat ear right
-            ctx.beginPath();
-            ctx.moveTo(iconX + 8, iconY - 8);
-            ctx.lineTo(iconX + 13, iconY - 16);
-            ctx.lineTo(iconX + 3, iconY - 10);
-            ctx.closePath(); ctx.fill();
-            // Mini head visor
-            ctx.fillStyle = "#0d1622";
-            ctx.strokeStyle = "#787890";
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.arc(iconX, iconY, 9, 0, Math.PI * 2);
-            ctx.fill(); ctx.stroke();
-            // Mini cyan eyes
-            ctx.shadowColor = "#00ffff"; ctx.shadowBlur = 5;
-            ctx.fillStyle = "#00e5ff";
-            ctx.beginPath(); ctx.ellipse(iconX - 3.2, iconY - 0.5, 2.5, 1.4, 0.25, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.ellipse(iconX + 3.2, iconY - 0.5, 2.5, 1.4, -0.25, 0, Math.PI * 2); ctx.fill();
+            ctx.moveTo(W - 80, 10); ctx.lineTo(W - 80, 44);
+            ctx.stroke();
+
+            // Coin dot
+            ctx.fillStyle = "#f4c010";
+            ctx.shadowColor = "#f4c010"; ctx.shadowBlur = 6;
+            ctx.beginPath(); ctx.arc(W - 67, 16, 5, 0, Math.PI * 2); ctx.fill();
             ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
 
-            // Coin count
+            // COINS column — right-aligned to W-14
             ctx.fillStyle = "#f4c010";
-            ctx.font = "bold 13px Arial";
-            ctx.textAlign = "left";
-            ctx.fillText("COINS", W - 96, 17);
+            ctx.font = "bold 11px Arial";
+            ctx.textAlign = "right";
+            ctx.fillText("COINS", W - 14, 17);
             ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 20px Arial";
-            ctx.fillText(coinCount, W - 96, 38);
+            ctx.font = "bold 22px Arial";
+            ctx.fillText(coinCount, W - 14, 38);
 
             // Speed bar
             const speedFrac = (gameSpeed - 0.4) / (MAX_SPEED - 0.4);
@@ -2737,6 +2757,21 @@
             }
         }
 
+        function updateHudProfile() {
+            const el = document.getElementById('hud-profile');
+            if (!el) return;
+            if (window.walletAddr) {
+                const a = window.walletAddr;
+                el.innerHTML = '<span style="opacity:0.65;font-size:7px">WALLET</span><span class="hud-uname">' + a.slice(0, 6) + '…' + a.slice(-4) + '</span>';
+                el.style.display = 'block';
+            } else if (window.guestName) {
+                el.innerHTML = '<span style="opacity:0.65;font-size:7px">GUEST</span><span class="hud-uname">' + escapeHtml(window.guestName) + '</span>';
+                el.style.display = 'block';
+            } else {
+                el.style.display = 'none';
+            }
+        }
+
         async function connectWithProvider(provider, name) {
             walletPickerBackdrop.classList.remove('open');
             walletConnectBtn.disabled = true;
@@ -2747,6 +2782,7 @@
                 window.activeProvider = provider;
                 window.guestName = null;
                 setOverlayStatus('✓ ' + name + ': ' + accounts[0].slice(0, 6) + '…' + accounts[0].slice(-4), '#39ff8e');
+                updateHudProfile();
                 setTimeout(dismissWalletOverlay, 700);
             } catch {
                 walletConnectBtn.disabled = false;
@@ -2785,6 +2821,7 @@
                 return;
             }
             window.guestName = raw;
+            updateHudProfile();
             dismissWalletOverlay();
         });
 
@@ -2964,8 +3001,13 @@
                 });
                 const explorerUrl = 'https://explorer-bradbury.genlayer.com/tx/' + txHash;
                 const s = document.getElementById('gl-status');
-                s.innerHTML = '✓ Score saved on-chain! <a href="' + explorerUrl + '" target="_blank" rel="noopener" style="color:#00dcff;text-decoration:underline;font-size:11px;">View tx ↗</a>';
+                s.innerHTML = '✓ Score saved! <a href="' + explorerUrl + '" target="_blank" rel="noopener" style="color:#00dcff;text-decoration:underline;font-size:11px;">View tx ↗</a>';
                 s.style.color = '#39ff8e';
+                // Auto-open leaderboard so user sees their entry immediately
+                setTimeout(() => {
+                    document.getElementById('gl-leaderboard-overlay').style.display = 'flex';
+                    loadTopScores();
+                }, 900);
             } catch (err) {
                 const msg = (err.message || String(err));
                 if (msg.toLowerCase().includes('rejected') || msg.toLowerCase().includes('denied')) {
