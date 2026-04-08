@@ -710,7 +710,7 @@
             <div id="gl-guest-row" style="display:none;font-size:11px;text-align:center;color:rgba(0,220,255,0.8);">
             </div>
             <div id="gl-status"></div>
-            <button id="gl-board-btn">View Top Scores</button>
+            <button id="gl-board-btn">View Leaderboard</button>
         </div>
 
         <!-- Full-screen leaderboard overlay -->
@@ -738,6 +738,8 @@
         let elapsedTime = 0;
         let highScore = 0;
         const MAX_SPEED = 1.4;
+        const SESSION_DURATION = 180; // 3 minutes per round
+        let sessionTimeLeft = SESSION_DURATION;
 
         // ─── Screen Shake ─────────────────────────────────────────────
         let shakeTimer = 0;
@@ -909,6 +911,18 @@
             if (gameState !== 'playing') return;
             const sec = dt / 1000;
             elapsedTime += dt;
+
+            // 3-minute countdown — time's up triggers game over
+            sessionTimeLeft -= sec;
+            if (sessionTimeLeft <= 0) {
+                sessionTimeLeft = 0;
+                if (score > highScore) highScore = Math.floor(score);
+                gameOver = true;
+                gameState = 'gameover';
+                triggerShake(10);
+                if (typeof window.mochiOnGameOver === 'function') window.mochiOnGameOver(Math.floor(score));
+                return;
+            }
 
             // Score: distance points + coin bonus
             score += gameSpeed * 18 * sec;
@@ -1954,6 +1968,18 @@
             ctx.font = "bold 22px Arial";
             ctx.fillText(coinCount, W - 14, 38);
 
+            // Countdown timer — center of HUD bar
+            const mins = Math.floor(sessionTimeLeft / 60);
+            const secs = String(Math.floor(sessionTimeLeft % 60)).padStart(2, '0');
+            const timeStr = mins + ':' + secs;
+            const timerColor = sessionTimeLeft <= 30 ? '#ff2d78' : sessionTimeLeft <= 60 ? '#f4c010' : 'rgba(255,255,255,0.65)';
+            if (sessionTimeLeft <= 30) { ctx.shadowColor = '#ff2d78'; ctx.shadowBlur = 10; }
+            ctx.fillStyle = timerColor;
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(timeStr, W / 2, 33);
+            ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+
             // Speed bar
             const speedFrac = (gameSpeed - 0.4) / (MAX_SPEED - 0.4);
             ctx.fillStyle = "rgba(255,255,255,0.08)";
@@ -2449,6 +2475,7 @@
             coinTimer = -800;
             gameOver = false;
             gameState = 'playing';
+            sessionTimeLeft = SESSION_DURATION; // reset 3-min timer
             if (typeof window.mochiOnRestart === 'function') window.mochiOnRestart();
 
             player.lane = 1;
@@ -2772,6 +2799,17 @@
             }
 
             if (opts.length === 0) {
+                // Wallet may still be injecting (Rabby Mobile, MetaMask Mobile inject late).
+                // Retry once before showing "no wallet" message.
+                if (!walletPickerList._retried) {
+                    walletPickerList._retried = true;
+                    walletPickerList.innerHTML = '<div style="color:rgba(180,180,180,0.7);font-size:11px;padding:8px 0">Detecting wallets\u2026</div>';
+                    walletPickerNoWallet.style.display = 'none';
+                    window.dispatchEvent(new Event('eip6963:requestProvider'));
+                    setTimeout(buildWalletOptions, 1500);
+                    return;
+                }
+                walletPickerList._retried = false;
                 walletPickerNoWallet.style.display = 'block';
                 const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
                 if (isMobile) {
@@ -3084,10 +3122,7 @@
                 s.innerHTML = '✓ Score saved! <a href="' + explorerUrl + '" target="_blank" rel="noopener" style="color:#00dcff;text-decoration:underline;font-size:11px;">View tx ↗</a>';
                 s.style.color = '#39ff8e';
                 // Auto-open leaderboard so user sees their entry immediately
-                setTimeout(() => {
-                    document.getElementById('gl-leaderboard-overlay').style.display = 'flex';
-                    loadTopScores();
-                }, 900);
+                setTimeout(openLeaderboard, 900);
             } catch (err) {
                 const msg = (err.message || String(err));
                 if (msg.toLowerCase().includes('rejected') || msg.toLowerCase().includes('denied')) {
@@ -3101,14 +3136,21 @@
             }
         });
 
-        document.getElementById('gl-board-btn').addEventListener('click', () => {
+        let _lbRefreshInterval = null;
+        function openLeaderboard() {
             document.getElementById('gl-leaderboard-overlay').style.display = 'flex';
             loadTopScores();
-        });
-
-        document.getElementById('gl-lb-close').addEventListener('click', () => {
+            clearInterval(_lbRefreshInterval);
+            _lbRefreshInterval = setInterval(loadTopScores, 15000);
+        }
+        function closeLeaderboard() {
             document.getElementById('gl-leaderboard-overlay').style.display = 'none';
-        });
+            clearInterval(_lbRefreshInterval);
+            _lbRefreshInterval = null;
+        }
+
+        document.getElementById('gl-board-btn').addEventListener('click', openLeaderboard);
+        document.getElementById('gl-lb-close').addEventListener('click', closeLeaderboard);
     </script>
 </body>
 
