@@ -816,8 +816,10 @@
         let elapsedTime = 0;
         let highScore = 0;
         const MAX_SPEED = 1.4;
-        const SESSION_DURATION = 180; // 3 minutes per round
+        const SESSION_DURATION = 180; // 3 minutes solo
+        const SESSION_DURATION_TOURNAMENT = 300; // 5 minutes tournament
         let sessionTimeLeft = SESSION_DURATION;
+        function getSessionDuration() { return window.sessionCode ? SESSION_DURATION_TOURNAMENT : SESSION_DURATION; }
 
         // ─── Screen Shake ─────────────────────────────────────────────
         let shakeTimer = 0;
@@ -990,7 +992,6 @@
             const sec = dt / 1000;
             elapsedTime += dt;
 
-            // 3-minute countdown — time's up triggers game over
             sessionTimeLeft -= sec;
             if (sessionTimeLeft <= 0) {
                 sessionTimeLeft = 0;
@@ -1929,6 +1930,7 @@
                 if (coin.lane !== player.targetLane) continue;
                 coin.collected = true;
                 coinCount++;
+                score += 75; // coin bonus
                 const cpos = coinScreenPos(coin);
                 spawnCoinPop(cpos.x, cpos.y);
             }
@@ -2553,7 +2555,7 @@
             coinTimer = -800;
             gameOver = false;
             gameState = 'playing';
-            sessionTimeLeft = SESSION_DURATION; // reset 3-min timer
+            sessionTimeLeft = getSessionDuration(); // reset timer (3min solo / 5min tournament)
             if (typeof window.mochiOnRestart === 'function') window.mochiOnRestart();
 
             player.lane = 1;
@@ -2812,13 +2814,25 @@
             for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
             sessionInput.value = code;
             joinSession(code);
-            // Remind mod to share
-            setTimeout(() => {
-                if (window.sessionCode === code) {
-                    sessionStatus.textContent = '\u2713 Code: ' + code + ' \u2014 share this with your players!';
+            // 2-minute lobby countdown before the session "opens"
+            let lobbySecsLeft = 120;
+            const lobbyInterval = setInterval(() => {
+                lobbySecsLeft--;
+                if (window.sessionCode !== code) { clearInterval(lobbyInterval); return; }
+                if (lobbySecsLeft <= 0) {
+                    clearInterval(lobbyInterval);
+                    sessionStatus.textContent = '\u25b6 Room ' + code + ' is LIVE \u2014 share with players!';
                     sessionStatus.style.color = '#39ff8e';
+                    return;
                 }
-            }, 1200);
+                const m = Math.floor(lobbySecsLeft / 60);
+                const s = String(lobbySecsLeft % 60).padStart(2, '0');
+                sessionStatus.textContent = '\u23f3 Room ' + code + ' opens in ' + m + ':' + s + ' \u2014 share now!';
+                sessionStatus.style.color = '#00dcff';
+            }, 1000);
+            // Remind to share immediately
+            sessionStatus.textContent = '\u23f3 Room ' + code + ' opens in 2:00 \u2014 share with players!';
+            sessionStatus.style.color = '#00dcff';
         };
 
         // ─── Wallet Connect Overlay ────────────────────────────────────
@@ -2827,12 +2841,20 @@
         const walletSkipBtn = document.getElementById('wallet-skip-btn');
         const walletOverlayStatus = document.getElementById('wallet-overlay-status');
 
-        // Show mobile deep-link section if on mobile and no wallet already injected
+        // Show mobile deep-link section:
+        // - Always show on mobile when inside a wallet's browser (ethereum present but EIP-6963 may not fire yet)
+        // - Show on mobile when no wallet at all
+        // - Hide on desktop
         (function () {
             const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-            if (isMobile && !window.ethereum) {
-                const el = document.getElementById('mobile-dapp-links');
-                if (el) el.style.display = 'flex';
+            if (isMobile) {
+                // Delay slightly so wallet browser can inject window.ethereum first
+                setTimeout(function () {
+                    // If a wallet injected, hide the links — user can just tap Connect Wallet
+                    const hasWallet = window.ethereum || (window.__eip6963Providers && window.__eip6963Providers.length > 0);
+                    const el = document.getElementById('mobile-dapp-links');
+                    if (el) el.style.display = hasWallet ? 'none' : 'flex';
+                }, 800);
             }
         }());
 
@@ -2875,14 +2897,19 @@
                 opts.push({ name: info.name, icon: info.icon, provider });
             }
 
-            // Fallback: window.ethereum (legacy injected, only if not already listed)
-            if (window.ethereum && window.__eip6963Providers.length === 0) {
-                const name = window.ethereum.isMetaMask ? 'MetaMask'
-                    : window.ethereum.isCoinbaseWallet ? 'Coinbase Wallet'
-                        : window.ethereum.isRabby ? 'Rabby'
-                            : window.ethereum.isBraveWallet ? 'Brave Wallet'
-                                : 'Browser Wallet';
-                opts.push({ name, icon: null, provider: window.ethereum });
+            // Fallback: window.ethereum (legacy injected)
+            // Accept it even if EIP-6963 providers exist — mobile wallets sometimes do both
+            if (window.ethereum) {
+                const alreadyListed = opts.some(o => o.provider === window.ethereum);
+                if (!alreadyListed) {
+                    const name = window.ethereum.isMetaMask ? 'MetaMask'
+                        : window.ethereum.isCoinbaseWallet ? 'Coinbase Wallet'
+                            : window.ethereum.isRabby ? 'Rabby'
+                                : window.ethereum.isBraveWallet ? 'Brave Wallet'
+                                    : window.ethereum.isOkxWallet ? 'OKX Wallet'
+                                        : 'Browser Wallet';
+                    opts.push({ name, icon: null, provider: window.ethereum });
+                }
             }
 
             if (opts.length === 0) {
@@ -3189,16 +3216,26 @@
                 setStatus('TX sent — waiting for validator consensus…');
                 await writeClient.waitForTransactionReceipt({
                     hash: txHash,
-                    status: 'FINALIZED',
-                    interval: 5000,
-                    retries: 60
+                    status: 'ACCEPTED',
+                    interval: 4000,
+                    retries: 120
                 });
                 const explorerUrl = 'https://explorer-bradbury.genlayer.com/tx/' + txHash;
                 const s = document.getElementById('gl-status');
-                s.innerHTML = '✓ Score saved! <a href="' + explorerUrl + '" target="_blank" rel="noopener" style="color:#00dcff;text-decoration:underline;font-size:11px;">View tx ↗</a>';
+                s.innerHTML = '✓ Score accepted! Loading leaderboard… <a href="' + explorerUrl + '" target="_blank" rel="noopener" style="color:#00dcff;text-decoration:underline;font-size:11px;">View tx ↗</a>';
                 s.style.color = '#39ff8e';
-                // Auto-open leaderboard so user sees their entry immediately
-                setTimeout(openLeaderboard, 900);
+                // Wait 25s for state to commit after ACCEPTED consensus, then open leaderboard
+                let countdown = 25;
+                const pollId = setInterval(() => {
+                    countdown--;
+                    if (countdown <= 0) {
+                        clearInterval(pollId);
+                        s.innerHTML = '✓ Score saved! <a href="' + explorerUrl + '" target="_blank" rel="noopener" style="color:#00dcff;text-decoration:underline;font-size:11px;">View tx ↗</a>';
+                        openLeaderboard();
+                    } else {
+                        s.innerHTML = '✓ Score accepted! Opening leaderboard in ' + countdown + 's… <a href="' + explorerUrl + '" target="_blank" rel="noopener" style="color:#00dcff;text-decoration:underline;font-size:11px;">View tx ↗</a>';
+                    }
+                }, 1000);
             } catch (err) {
                 const msg = (err.message || String(err));
                 if (msg.toLowerCase().includes('rejected') || msg.toLowerCase().includes('denied')) {
