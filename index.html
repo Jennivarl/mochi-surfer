@@ -470,6 +470,55 @@
             font-family: Arial, sans-serif;
         }
 
+        /* Mobile — open game in wallet browser links */
+        #mobile-dapp-links {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            width: 100%;
+            margin-top: 2px;
+        }
+
+        .wdl-label {
+            font-size: 9px;
+            letter-spacing: 1.5px;
+            color: rgba(180, 80, 255, 0.7);
+            text-align: center;
+            font-family: 'Orbitron', Arial, sans-serif;
+        }
+
+        .wdl-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .wdl-btn {
+            display: block;
+            padding: 9px 6px;
+            border-radius: 7px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 12px;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            transition: opacity 0.15s;
+        }
+
+        .wdl-btn:active {
+            opacity: 0.65;
+        }
+
+        .wdl-full {
+            grid-column: span 2;
+        }
+
+        .wdl-hint {
+            font-size: 10px;
+            color: rgba(180, 180, 180, 0.5);
+            text-align: center;
+        }
+
         #wallet-overlay-status {
             color: rgba(180, 180, 180, 0.85);
             font-size: 11px;
@@ -654,6 +703,38 @@
                 <button id="wallet-connect-btn">⬡ Connect Wallet</button>
                 <div id="wallet-overlay-status"></div>
 
+                <!-- Mobile: open game inside wallet browser -->
+                <div id="mobile-dapp-links">
+                    <hr class="session-divider">
+                    <div class="wdl-label">📱 OPEN GAME IN WALLET BROWSER</div>
+                    <div class="wdl-grid">
+                        <a class="wdl-btn" href="https://metamask.app.link/dapp/vmsg.itch.io/mochi-skate-run"
+                            target="_blank" rel="noopener"
+                            style="background:rgba(229,125,1,0.15);border:1px solid rgba(229,125,1,0.55);color:#e07b01">🦊
+                            MetaMask</a>
+                        <a class="wdl-btn" href="rabby://dapp?url=https%3A%2F%2Fvmsg.itch.io%2Fmochi-skate-run"
+                            target="_blank" rel="noopener"
+                            style="background:rgba(134,99,255,0.15);border:1px solid rgba(134,99,255,0.55);color:#8a63ff">🐰
+                            Rabby</a>
+                        <a class="wdl-btn"
+                            href="https://app.zerion.io/browser?url=https%3A%2F%2Fvmsg.itch.io%2Fmochi-skate-run"
+                            target="_blank" rel="noopener"
+                            style="background:rgba(84,196,255,0.12);border:1px solid rgba(84,196,255,0.45);color:#54c4ff">🔵
+                            Zerion</a>
+                        <a class="wdl-btn"
+                            href="https://www.okx.com/download?deeplink=okx%3A%2F%2Fwallet%2Fdapp%2Fdetails%3FdappUrl%3Dhttps%253A%252F%252Fvmsg.itch.io%252Fmochi-skate-run"
+                            target="_blank" rel="noopener"
+                            style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.28);color:#e0e0e0">⬛
+                            OKX</a>
+                        <a class="wdl-btn wdl-full"
+                            href="https://go.cb-wallet.com/dapp?url=https%3A%2F%2Fvmsg.itch.io%2Fmochi-skate-run"
+                            target="_blank" rel="noopener"
+                            style="background:rgba(22,82,240,0.14);border:1px solid rgba(22,82,240,0.5);color:#4d84f0">💙
+                            Coinbase Wallet</a>
+                    </div>
+                    <div class="wdl-hint">Tap → wallet opens game in its browser → connect auto-detected</div>
+                </div>
+
                 <!-- Wallet picker modal (inside overlay card) -->
                 <div id="wallet-picker-backdrop">
                     <div id="wallet-picker-modal">
@@ -662,10 +743,7 @@
                         <div id="wallet-picker-no-wallet">
                             No browser wallet detected.<br>
                             Install <a href="https://metamask.io" target="_blank" rel="noopener"
-                                style="color:#00dcff">MetaMask</a>,
-                            <a href="https://www.coinbase.com/wallet" target="_blank" rel="noopener"
-                                style="color:#00dcff">Coinbase Wallet</a>,
-                            or another EVM extension, then refresh.
+                                style="color:#00dcff">MetaMask</a> or another EVM extension, then refresh.
                         </div>
                         <button id="wallet-picker-cancel">Cancel</button>
                     </div>
@@ -2749,6 +2827,15 @@
         const walletSkipBtn = document.getElementById('wallet-skip-btn');
         const walletOverlayStatus = document.getElementById('wallet-overlay-status');
 
+        // Show mobile deep-link section if on mobile and no wallet already injected
+        (function () {
+            const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+            if (isMobile && !window.ethereum) {
+                const el = document.getElementById('mobile-dapp-links');
+                if (el) el.style.display = 'flex';
+            }
+        }());
+
         function setOverlayStatus(msg, color) {
             walletOverlayStatus.textContent = msg;
             walletOverlayStatus.style.color = color || 'rgba(180,180,180,0.85)';
@@ -2811,18 +2898,7 @@
                 }
                 walletPickerList._retried = false;
                 walletPickerNoWallet.style.display = 'block';
-                const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-                if (isMobile) {
-                    const gameUrl = encodeURIComponent('https://vmsg.itch.io/mochi-skate-run');
-                    const rawUrl = 'vmsg.itch.io/mochi-skate-run';
-                    walletPickerNoWallet.innerHTML =
-                        '<div style="margin-bottom:8px;color:rgba(180,180,180,0.85);font-size:11px">On mobile, open this game inside your wallet\'s browser:</div>' +
-                        '<a href="https://metamask.app.link/dapp/' + rawUrl + '" style="display:block;margin:5px 0;padding:8px 12px;background:rgba(229,125,1,0.15);border:1px solid rgba(229,125,1,0.5);border-radius:6px;color:#e07b01;text-decoration:none;font-weight:bold;font-size:12px">🦊 Open in MetaMask</a>' +
-                        '<a href="https://go.cb-wallet.com/dapp?url=' + gameUrl + '" style="display:block;margin:5px 0;padding:8px 12px;background:rgba(22,82,240,0.15);border:1px solid rgba(22,82,240,0.5);border-radius:6px;color:#4d84f0;text-decoration:none;font-weight:bold;font-size:12px">💙 Open in Coinbase Wallet</a>' +
-                        '<a href="https://link.zerion.io/pt3gdRP0gib?redirectUrl=' + gameUrl + '" style="display:block;margin:5px 0;padding:8px 12px;background:rgba(84,196,255,0.12);border:1px solid rgba(84,196,255,0.45);border-radius:6px;color:#54c4ff;text-decoration:none;font-weight:bold;font-size:12px">🔵 Open in Zerion</a>' +
-                        '<a href="https://www.okx.com/download?deeplink=' + gameUrl + '" style="display:block;margin:5px 0;padding:8px 12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.3);border-radius:6px;color:#ffffff;text-decoration:none;font-weight:bold;font-size:12px">⬛ Open in OKX Wallet</a>' +
-                        '<a href="rabby://dapp?url=' + gameUrl + '" style="display:block;margin:5px 0;padding:8px 12px;background:rgba(134,99,255,0.15);border:1px solid rgba(134,99,255,0.5);border-radius:6px;color:#8a63ff;text-decoration:none;font-weight:bold;font-size:12px">🐰 Open in Rabby</a>';
-                }
+                walletPickerNoWallet.innerHTML = 'No browser wallet detected.<br>Install <a href="https://metamask.io" target="_blank" rel="noopener" style="color:#00dcff">MetaMask</a> or another EVM extension, then refresh.';
                 return;
             }
             walletPickerNoWallet.style.display = 'none';
