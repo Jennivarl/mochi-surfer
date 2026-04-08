@@ -359,11 +359,14 @@
             border: 1.5px solid rgba(0, 200, 255, 0.5);
             border-radius: 6px;
             color: rgba(0, 220, 255, 0.9);
-            font-size: 13px;
-            padding: 4px 7px;
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 0.04em;
+            padding: 4px 9px;
             cursor: pointer;
             font-family: Arial, sans-serif;
             line-height: 1;
+            white-space: nowrap;
         }
 
         #generate-code-btn:hover {
@@ -497,10 +500,10 @@
                 <div id="session-row">
                     <input id="session-code-input" type="text" maxlength="6" placeholder="Paste code here…"
                         autocomplete="off" spellcheck="false">
-                    <button id="generate-code-btn" title="Generate a new tournament code (mod only)">🎲</button>
+                    <button id="generate-code-btn" title="Create a new tournament room">Create Room</button>
                     <button id="session-join-btn">Join</button>
                 </div>
-                <div id="session-status">Members: paste the code → Join&nbsp;&nbsp;|&nbsp;&nbsp;Mods: 🎲 to generate
+                <div id="session-status">Mods: Create Room &amp; share the code — Members: paste &amp; Join
                 </div>
                 <!-- Guest username (shown when in a session + no wallet) -->
                 <div id="guest-name-row">
@@ -2458,7 +2461,7 @@
             window.sessionCode = null;
             window.guestName = null;
             sessionInput.value = '';
-            sessionStatus.textContent = 'Members: paste the code → Join  |  Mods: 🎲 to generate';
+            sessionStatus.textContent = 'Mods: Create Room & share the code — Members: paste & Join';
             sessionStatus.style.color = 'rgba(180,180,180,0.7)';
             sessionJoinBtn.textContent = 'Join';
             sessionJoinBtn.style.borderColor = '';
