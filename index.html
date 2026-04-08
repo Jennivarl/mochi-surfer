@@ -127,12 +127,18 @@
             border: 1px solid rgba(0, 220, 255, 0.3);
             border-radius: 4px;
             padding: 3px 8px 3px 6px;
-            pointer-events: none;
+            cursor: pointer;
             max-width: 185px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             line-height: 1.5;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        #hud-profile:hover {
+            border-color: rgba(0, 220, 255, 0.7);
+            background: rgba(0, 0, 0, 0.78);
         }
 
         #hud-profile .hud-uname {
@@ -141,6 +147,40 @@
             font-size: 11px;
             font-weight: 700;
             letter-spacing: 0.5px;
+        }
+
+        /* My-score popup (shown when profile chip is tapped) */
+        #my-score-toast {
+            display: none;
+            position: absolute;
+            top: 62px;
+            left: 8px;
+            z-index: 30;
+            font-family: 'Orbitron', Arial, sans-serif;
+            background: rgba(5, 0, 18, 0.97);
+            border: 1px solid rgba(0, 220, 255, 0.55);
+            border-radius: 7px;
+            padding: 8px 14px 10px;
+            box-shadow: 0 0 16px rgba(0, 220, 255, 0.25);
+            pointer-events: none;
+            white-space: nowrap;
+            line-height: 1.5;
+        }
+
+        #my-score-toast .mst-label {
+            display: block;
+            font-size: 7px;
+            letter-spacing: 1.5px;
+            color: rgba(0, 220, 255, 0.75);
+            margin-bottom: 2px;
+        }
+
+        #my-score-toast .mst-score {
+            display: block;
+            font-size: 22px;
+            font-weight: 900;
+            color: #ffffff;
+            text-shadow: 0 0 10px rgba(0, 220, 255, 0.5);
         }
 
         #gl-status {
@@ -653,6 +693,8 @@
 
         <!-- In-game profile chip -->
         <div id="hud-profile"></div>
+        <!-- My-score popup (shown on chip tap) -->
+        <div id="my-score-toast"></div>
 
         <!-- GenLayer blockchain submit panel (shown on game over) -->
         <div id="gl-panel">
@@ -2731,6 +2773,14 @@
 
             if (opts.length === 0) {
                 walletPickerNoWallet.style.display = 'block';
+                const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+                if (isMobile) {
+                    const gameUrl = encodeURIComponent('https://vmsg.itch.io/mochi-skate-run');
+                    walletPickerNoWallet.innerHTML =
+                        '<div style="margin-bottom:8px;color:rgba(180,180,180,0.85);font-size:11px">On mobile, open this game inside your wallet\'s browser:</div>' +
+                        '<a href="https://metamask.app.link/dapp/vmsg.itch.io/mochi-skate-run" style="display:block;margin:5px 0;padding:8px 12px;background:rgba(229,125,1,0.15);border:1px solid rgba(229,125,1,0.5);border-radius:6px;color:#e07b01;text-decoration:none;font-weight:bold;font-size:12px">🦊 Open in MetaMask</a>' +
+                        '<a href="https://go.cb-wallet.com/dapp?url=' + gameUrl + '" style="display:block;margin:5px 0;padding:8px 12px;background:rgba(22,82,240,0.15);border:1px solid rgba(22,82,240,0.5);border-radius:6px;color:#4d84f0;text-decoration:none;font-weight:bold;font-size:12px">💙 Open in Coinbase Wallet</a>';
+                }
                 return;
             }
             walletPickerNoWallet.style.display = 'none';
@@ -2762,14 +2812,40 @@
             if (!el) return;
             if (window.walletAddr) {
                 const a = window.walletAddr;
-                el.innerHTML = '<span style="opacity:0.65;font-size:7px">WALLET</span><span class="hud-uname">' + a.slice(0, 6) + '…' + a.slice(-4) + '</span>';
-                el.style.display = 'block';
-            } else if (window.guestName) {
-                el.innerHTML = '<span style="opacity:0.65;font-size:7px">GUEST</span><span class="hud-uname">' + escapeHtml(window.guestName) + '</span>';
+                el.innerHTML = '<span style="opacity:0.65;font-size:7px">WALLET — tap for best score</span><span class="hud-uname">' + a.slice(0, 6) + '…' + a.slice(-4) + '</span>';
                 el.style.display = 'block';
             } else {
                 el.style.display = 'none';
             }
+            el.onclick = () => showMyScore();
+        }
+
+        let _myScoreTimer = null;
+        async function showMyScore() {
+            if (!window.walletAddr) return;
+            const toast = document.getElementById('my-score-toast');
+            toast.innerHTML = '<span class="mst-label">YOUR BEST</span><span class="mst-score">…</span>';
+            toast.style.display = 'block';
+            clearTimeout(_myScoreTimer);
+            try {
+                const allScores = await readClient.readContract({
+                    address: CONTRACT,
+                    functionName: 'get_top_scores',
+                    args: [100]
+                });
+                const myAddr = (window.walletAddr || '').toLowerCase();
+                const entry = Array.isArray(allScores) && allScores.find(
+                    s => String(s.address || '').toLowerCase() === myAddr
+                );
+                if (entry) {
+                    toast.innerHTML = '<span class="mst-label">YOUR BEST</span><span class="mst-score">' + Number(entry.score).toLocaleString() + '</span>';
+                } else {
+                    toast.innerHTML = '<span class="mst-label">YOUR BEST</span><span class="mst-score" style="font-size:11px;opacity:0.55">No score yet</span>';
+                }
+            } catch {
+                toast.innerHTML = '<span class="mst-label">YOUR BEST</span><span class="mst-score" style="font-size:11px;color:rgba(255,100,100,0.7)">Failed to load</span>';
+            }
+            _myScoreTimer = setTimeout(() => { toast.style.display = 'none'; }, 5000);
         }
 
         async function connectWithProvider(provider, name) {
@@ -2995,7 +3071,7 @@
                 setStatus('TX sent — waiting for validator consensus…');
                 await writeClient.waitForTransactionReceipt({
                     hash: txHash,
-                    status: 'ACCEPTED',
+                    status: 'FINALIZED',
                     interval: 5000,
                     retries: 60
                 });
