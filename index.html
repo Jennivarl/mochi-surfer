@@ -2472,6 +2472,19 @@
         window.addEventListener('resize', scaleGame);
     </script>
     <script>
+        // ─── EIP-6963: set up as early as possible so no wallet announcement is missed.
+        // Extensions fire eip6963:announceProvider in response to eip6963:requestProvider.
+        // The module script loads late (async), so we capture providers here instead.
+        window.__eip6963Providers = [];
+        window.addEventListener('eip6963:announceProvider', function (event) {
+            var info = event.detail && event.detail.info;
+            var provider = event.detail && event.detail.provider;
+            if (!info || !provider) return;
+            var already = window.__eip6963Providers.some(function (p) { return p.info.rdns === info.rdns; });
+            if (!already) window.__eip6963Providers.push({ info: info, provider: provider });
+        });
+        window.dispatchEvent(new Event('eip6963:requestProvider'));
+
         // Patch window.fetch BEFORE the module script loads so the SDK always
         // hits our interceptor. The SDK routes eth_chainId to the GenLayer RPC
         // (not MetaMask) — the RPC rejects it. We answer locally instead.
@@ -2657,18 +2670,15 @@
             applySessionUI();
         }
 
-        // ─── EIP-6963 multi-wallet detection ─────────────────────────
-        const eip6963Providers = [];
+        // ─── EIP-6963: listener was set up in the early plain script (window.__eip6963Providers).
+        // Also keep listening here so any late-announcing wallets are captured too.
         window.addEventListener('eip6963:announceProvider', (event) => {
             const info = event.detail?.info;
             const provider = event.detail?.provider;
             if (!info || !provider) return;
-            // Avoid duplicates by rdns
-            if (eip6963Providers.some(p => p.info.rdns === info.rdns)) return;
-            eip6963Providers.push({ info, provider });
+            if (window.__eip6963Providers.some(p => p.info.rdns === info.rdns)) return;
+            window.__eip6963Providers.push({ info, provider });
         });
-        // Trigger all installed wallets to announce themselves
-        window.dispatchEvent(new Event('eip6963:requestProvider'));
 
         // ─── Wallet picker logic ──────────────────────────────────────
         const walletPickerBackdrop = document.getElementById('wallet-picker-backdrop');
@@ -2685,12 +2695,12 @@
             const opts = [];
 
             // EIP-6963 discovered wallets (highest priority — exact identity)
-            for (const { info, provider } of eip6963Providers) {
+            for (const { info, provider } of window.__eip6963Providers) {
                 opts.push({ name: info.name, icon: info.icon, provider });
             }
 
             // Fallback: window.ethereum (legacy injected, only if not already listed)
-            if (window.ethereum && eip6963Providers.length === 0) {
+            if (window.ethereum && window.__eip6963Providers.length === 0) {
                 const name = window.ethereum.isMetaMask ? 'MetaMask'
                     : window.ethereum.isCoinbaseWallet ? 'Coinbase Wallet'
                         : window.ethereum.isRabby ? 'Rabby'
@@ -2745,12 +2755,13 @@
         }
 
         walletConnectBtn.addEventListener('click', () => {
-            // Re-request announcements to pick up any newly installed wallets
+            // Re-request announcements to pick up any newly installed wallets.
+            // 300ms gives all extensions enough time to respond (Rabby can be slow).
             window.dispatchEvent(new Event('eip6963:requestProvider'));
             setTimeout(() => {
                 buildWalletOptions();
                 walletPickerBackdrop.classList.add('open');
-            }, 60);
+            }, 300);
         });
 
         // "Play without wallet" — if session code active, ask for guest name first
