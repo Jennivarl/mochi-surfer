@@ -66,7 +66,7 @@
             text-align: center;
             letter-spacing: 2px;
             font-family: 'Orbitron', Arial, sans-serif;
-            text-shadow: 0 0 8px rgba(0,220,255,0.5);
+            text-shadow: 0 0 8px rgba(0, 220, 255, 0.5);
         }
 
         #gl-input-row {
@@ -578,41 +578,46 @@
         }
 
         // ─── City Buildings ───────────────────────────────────────────
-        // Each building: { x, w, h, offset, windows:[ {row,col,lit} ] }
-        // Two parallax layers: far (slower) and near (faster)
         const FAR_BUILDINGS = (function () {
             const rng = (a, b) => a + Math.random() * (b - a);
             const cols = [];
             let x = -20;
             while (x < W + 20) {
-                const bw = rng(28, 60);
-                const bh = rng(50, HORIZON_Y * 0.85);
+                const bw = rng(28, 65);
+                const bh = rng(50, HORIZON_Y * 0.88);
                 const wrows = Math.floor(bh / 14);
                 const wcols = Math.max(1, Math.floor(bw / 13));
                 const wins = [];
                 for (let r = 0; r < wrows; r++)
                     for (let c = 0; c < wcols; c++)
                         wins.push({ r, c, lit: Math.random() < 0.55 });
-                cols.push({ x, w: bw, h: bh, wins });
+                // Rooftop style: 0=flat, 1=antenna, 2=stepped, 3=dome
+                const roofStyle = Math.floor(Math.random() * 4);
+                // Side face: random narrow depth illusion
+                const sideW = rng(4, 12);
+                cols.push({ x, w: bw, h: bh, wins, roofStyle, sideW });
                 x += bw + rng(4, 14);
             }
             return cols;
         }());
+
         const NEAR_BUILDINGS = (function () {
             const rng = (a, b) => a + Math.random() * (b - a);
             const cols = [];
             let x = -30;
             while (x < W + 40) {
-                const bw = rng(40, 80);
-                const bh = rng(HORIZON_Y * 0.4, HORIZON_Y * 1.05);
+                const bw = rng(42, 90);
+                const bh = rng(HORIZON_Y * 0.4, HORIZON_Y * 1.1);
                 const wrows = Math.floor(bh / 16);
                 const wcols = Math.max(1, Math.floor(bw / 15));
                 const wins = [];
                 for (let r = 0; r < wrows; r++)
                     for (let c = 0; c < wcols; c++)
                         wins.push({ r, c, lit: Math.random() < 0.5 });
-                cols.push({ x, w: bw, h: bh, wins });
-                x += bw + rng(6, 20);
+                const roofStyle = Math.floor(Math.random() * 4);
+                const sideW = rng(6, 18);
+                cols.push({ x, w: bw, h: bh, wins, roofStyle, sideW });
+                x += bw + rng(6, 22);
             }
             return cols;
         }());
@@ -621,37 +626,125 @@
         let cityScrollNear = 0;
         const NEON_COLORS = ["#ff2d78", "#b44fff", "#00e5ff", "#39ff14", "#ff9500"];
 
-        function drawBuildings(buildings, scrollX, alpha, winW, winH, gap) {
+        function drawBuildings(buildings, scrollX, alpha, winW, winH, gap, isNear) {
             ctx.save();
             ctx.globalAlpha = alpha;
-            const totalW = buildings[buildings.length - 1].x + buildings[buildings.length - 1].w + 20;
+            const totalW = buildings[buildings.length - 1].x + buildings[buildings.length - 1].w + 40;
+
             for (let pass = 0; pass < 2; pass++) {
                 const baseX = pass * totalW - scrollX % totalW;
                 for (const b of buildings) {
                     const bx = baseX + b.x;
                     const by = HORIZON_Y - b.h;
-                    // Skip off-screen
-                    if (bx + b.w < 0 || bx > W) continue;
-                    // Building body
-                    ctx.fillStyle = pass === 0 ? "#0d0d1a" : "#0a0a16";
+                    if (bx + b.w + b.sideW < 0 || bx > W) continue;
+
+                    // ── Side face (3D depth illusion) ──
+                    const sideColor = isNear ? "#0d0620" : "#080412";
+                    ctx.fillStyle = sideColor;
+                    ctx.beginPath();
+                    ctx.moveTo(bx + b.w, by);
+                    ctx.lineTo(bx + b.w + b.sideW, by - b.sideW * 0.4);
+                    ctx.lineTo(bx + b.w + b.sideW, HORIZON_Y - b.sideW * 0.4);
+                    ctx.lineTo(bx + b.w, HORIZON_Y);
+                    ctx.closePath();
+                    ctx.fill();
+                    // Side face edge highlight
+                    ctx.strokeStyle = "rgba(180,80,255,0.12)";
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(bx + b.w, by);
+                    ctx.lineTo(bx + b.w + b.sideW, by - b.sideW * 0.4);
+                    ctx.stroke();
+
+                    // ── Building front face ──
+                    // Gradient: slightly lighter at top for depth
+                    const bgrad = ctx.createLinearGradient(bx, by, bx, HORIZON_Y);
+                    bgrad.addColorStop(0, isNear ? "#14102a" : "#0d0d1f");
+                    bgrad.addColorStop(1, isNear ? "#0a0818" : "#080814");
+                    ctx.fillStyle = bgrad;
                     ctx.fillRect(bx, by, b.w, b.h);
-                    // Roof line accent
-                    ctx.fillStyle = "rgba(140,80,255,0.25)";
+
+                    // Thin vertical edge line (corner light)
+                    ctx.strokeStyle = "rgba(100,60,200,0.2)";
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(bx + b.w, by); ctx.lineTo(bx + b.w, HORIZON_Y);
+                    ctx.stroke();
+
+                    // ── Roof line accent ──
+                    ctx.fillStyle = isNear ? "rgba(180,80,255,0.35)" : "rgba(140,60,220,0.2)";
                     ctx.fillRect(bx, by, b.w, 2);
-                    // Windows
+
+                    // Rooftop 3D ledge
+                    ctx.fillStyle = isNear ? "#1e1438" : "#140e28";
+                    ctx.fillRect(bx - 2, by - 4, b.w + 4, 5);
+                    ctx.fillStyle = isNear ? "#2a1850" : "#1a1030";
+                    ctx.fillRect(bx - 2, by - 4, b.w + 4, 1);
+
+                    // ── Roof details ──
+                    const rcx = bx + b.w / 2;
+                    if (b.roofStyle === 1) {
+                        // Antenna
+                        ctx.strokeStyle = "rgba(200,150,255,0.6)";
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath(); ctx.moveTo(rcx, by - 4); ctx.lineTo(rcx, by - 18); ctx.stroke();
+                        ctx.fillStyle = "#ff2d78";
+                        ctx.shadowColor = "#ff2d78"; ctx.shadowBlur = 6;
+                        ctx.beginPath(); ctx.arc(rcx, by - 18, 2, 0, Math.PI * 2); ctx.fill();
+                        ctx.shadowBlur = 0;
+                    } else if (b.roofStyle === 2) {
+                        // Stepped pyramid top
+                        ctx.fillStyle = isNear ? "#1c1230" : "#120c22";
+                        ctx.fillRect(bx + b.w * 0.1, by - 8, b.w * 0.8, 5);
+                        ctx.fillRect(bx + b.w * 0.25, by - 14, b.w * 0.5, 6);
+                        ctx.fillStyle = "rgba(180,80,255,0.25)";
+                        ctx.fillRect(bx + b.w * 0.1, by - 8, b.w * 0.8, 1);
+                        ctx.fillRect(bx + b.w * 0.25, by - 14, b.w * 0.5, 1);
+                    } else if (b.roofStyle === 3) {
+                        // Dome/orb
+                        ctx.fillStyle = "#0d0820";
+                        ctx.beginPath();
+                        ctx.ellipse(rcx, by - 4, b.w * 0.22, b.w * 0.14, 0, Math.PI, 0);
+                        ctx.fill();
+                        ctx.strokeStyle = "rgba(0,220,255,0.3)";
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.ellipse(rcx, by - 4, b.w * 0.22, b.w * 0.14, 0, Math.PI, 0);
+                        ctx.stroke();
+                    }
+
+                    // ── Windows ──
                     for (const w of b.wins) {
                         const wx = bx + gap + w.c * (winW + gap);
                         const wy = by + gap + w.r * (winH + gap);
-                        if (wx + winW > bx + b.w || wy + winH > HORIZON_Y) continue;
+                        if (wx + winW > bx + b.w - 2 || wy + winH > HORIZON_Y - 2) continue;
                         if (w.lit) {
-                            ctx.fillStyle = Math.random() < 0.003
+                            // Randomly flicker neon
+                            if (Math.random() < 0.001) w.lit = false;
+                            const wColor = Math.random() < 0.04
                                 ? NEON_COLORS[Math.floor(Math.random() * NEON_COLORS.length)]
-                                : "rgba(255,240,160,0.85)";
+                                : "rgba(255,240,160,0.88)";
+                            ctx.fillStyle = wColor;
                             ctx.fillRect(wx, wy, winW, winH);
+                            // Window glow
+                            ctx.shadowColor = wColor;
+                            ctx.shadowBlur = 4;
+                            ctx.fillRect(wx, wy, winW, winH);
+                            ctx.shadowBlur = 0;
                         } else {
-                            ctx.fillStyle = "rgba(30,30,50,0.6)";
+                            if (Math.random() < 0.0005) w.lit = true;
+                            ctx.fillStyle = "rgba(20,15,40,0.7)";
                             ctx.fillRect(wx, wy, winW, winH);
                         }
+                    }
+
+                    // ── Occasional neon sign on building face ──
+                    if (isNear && b.w > 50 && Math.random() < 0.003) {
+                        const signColor = NEON_COLORS[Math.floor(Math.random() * NEON_COLORS.length)];
+                        ctx.shadowColor = signColor; ctx.shadowBlur = 10;
+                        ctx.strokeStyle = signColor; ctx.lineWidth = 2;
+                        ctx.strokeRect(bx + b.w * 0.15, by + b.h * 0.25, b.w * 0.7, b.h * 0.12);
+                        ctx.shadowBlur = 0;
                     }
                 }
             }
@@ -660,46 +753,73 @@
 
         // ─── Draw Track ───────────────────────────────────────────────
         function drawTrack() {
-            // ── Sky gradient ──
+            // ── Sky gradient — deeper, richer ──
             const sky = ctx.createLinearGradient(0, 0, 0, HORIZON_Y);
-            sky.addColorStop(0, "#04040f");
-            sky.addColorStop(0.6, "#0d0830");
-            sky.addColorStop(1, "#1a0533");
+            sky.addColorStop(0, "#02020c");
+            sky.addColorStop(0.45, "#08052a");
+            sky.addColorStop(0.85, "#160830");
+            sky.addColorStop(1, "#220a3a");
             ctx.fillStyle = sky;
             ctx.fillRect(0, 0, W, HORIZON_Y);
 
-            // ── Subtle stars ──
-            ctx.fillStyle = "rgba(255,255,255,0.7)";
-            // Fixed seed-like positions using sin
-            for (let i = 0; i < 60; i++) {
+            // ── Moon ──
+            ctx.save();
+            ctx.shadowColor = "rgba(180,220,255,0.6)";
+            ctx.shadowBlur = 24;
+            const moonGrad = ctx.createRadialGradient(W * 0.78, HORIZON_Y * 0.18, 0, W * 0.78, HORIZON_Y * 0.18, 18);
+            moonGrad.addColorStop(0, "rgba(230,240,255,0.95)");
+            moonGrad.addColorStop(0.6, "rgba(180,200,255,0.7)");
+            moonGrad.addColorStop(1, "rgba(100,140,220,0)");
+            ctx.fillStyle = moonGrad;
+            ctx.beginPath(); ctx.arc(W * 0.78, HORIZON_Y * 0.18, 18, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+
+            // ── Stars — layered brightness ──
+            for (let i = 0; i < 80; i++) {
                 const sx = ((Math.sin(i * 127.1) * 0.5 + 0.5) * W) | 0;
-                const sy = ((Math.sin(i * 311.7) * 0.5 + 0.5) * HORIZON_Y * 0.9) | 0;
-                const sr = (Math.sin(i * 74.3) * 0.5 + 0.5) * 1.2 + 0.3;
-                ctx.beginPath();
-                ctx.arc(sx, sy, sr, 0, Math.PI * 2);
-                ctx.fill();
+                const sy = ((Math.sin(i * 311.7) * 0.5 + 0.5) * HORIZON_Y * 0.88) | 0;
+                const sr = (Math.sin(i * 74.3) * 0.5 + 0.5) * 1.4 + 0.2;
+                const twinkle = 0.4 + Math.sin(Date.now() * 0.001 * (1 + (i % 5)) + i) * 0.35;
+                ctx.fillStyle = i % 7 === 0 ? `rgba(180,210,255,${twinkle.toFixed(2)})` : `rgba(255,255,255,${(twinkle * 0.7).toFixed(2)})`;
+                ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
             }
+
+            // ── Distant city glow behind buildings ──
+            const cityGlow = ctx.createRadialGradient(W / 2, HORIZON_Y, 0, W / 2, HORIZON_Y, W * 0.75);
+            cityGlow.addColorStop(0, "rgba(140,0,255,0.18)");
+            cityGlow.addColorStop(0.4, "rgba(255,40,120,0.09)");
+            cityGlow.addColorStop(1, "rgba(0,0,0,0)");
+            ctx.fillStyle = cityGlow;
+            ctx.fillRect(0, HORIZON_Y * 0.3, W, HORIZON_Y * 0.7);
 
             // ── Far city buildings (slow parallax) ──
             cityScrollFar += gameSpeed * 0.4;
-            drawBuildings(FAR_BUILDINGS, cityScrollFar, 0.7, 4, 5, 3);
+            drawBuildings(FAR_BUILDINGS, cityScrollFar, 0.65, 4, 5, 3, false);
+
+            // ── Mid atmospheric fog layer ──
+            const fog = ctx.createLinearGradient(0, HORIZON_Y * 0.55, 0, HORIZON_Y);
+            fog.addColorStop(0, "rgba(10,5,30,0)");
+            fog.addColorStop(1, "rgba(22,8,45,0.45)");
+            ctx.fillStyle = fog;
+            ctx.fillRect(0, HORIZON_Y * 0.55, W, HORIZON_Y * 0.45);
 
             // ── Near city buildings (faster parallax) ──
             cityScrollNear += gameSpeed * 1.1;
-            drawBuildings(NEAR_BUILDINGS, cityScrollNear, 0.9, 5, 7, 4);
+            drawBuildings(NEAR_BUILDINGS, cityScrollNear, 0.92, 5, 7, 4, true);
 
             // ── Purple/pink city glow on horizon ──
-            const glowGrad = ctx.createLinearGradient(0, HORIZON_Y - 28, 0, HORIZON_Y + 8);
+            const glowGrad = ctx.createLinearGradient(0, HORIZON_Y - 30, 0, HORIZON_Y + 10);
             glowGrad.addColorStop(0, "rgba(160,0,255,0.0)");
-            glowGrad.addColorStop(0.5, "rgba(180,0,255,0.22)");
-            glowGrad.addColorStop(1, "rgba(255,50,120,0.35)");
+            glowGrad.addColorStop(0.4, "rgba(180,0,255,0.28)");
+            glowGrad.addColorStop(1, "rgba(255,50,120,0.42)");
             ctx.fillStyle = glowGrad;
-            ctx.fillRect(0, HORIZON_Y - 28, W, 36);
+            ctx.fillRect(0, HORIZON_Y - 30, W, 40);
 
             // ── Ground / track surface ──
             const ground = ctx.createLinearGradient(0, HORIZON_Y, 0, GROUND_Y);
-            ground.addColorStop(0, "#2a1a40");
-            ground.addColorStop(1, "#0e0818");
+            ground.addColorStop(0, "#2e1a48");
+            ground.addColorStop(0.4, "#180e2e");
+            ground.addColorStop(1, "#0a0614");
             ctx.fillStyle = ground;
             ctx.beginPath();
             ctx.moveTo(TRACK_LEFT_TOP, HORIZON_Y);
@@ -709,6 +829,22 @@
             ctx.closePath();
             ctx.fill();
 
+            // ── Ground side panels (3D pavement edge) ──
+            // Left gutter
+            const leftGutter = ctx.createLinearGradient(0, HORIZON_Y, 0, GROUND_Y);
+            leftGutter.addColorStop(0, "#0e0820"); leftGutter.addColorStop(1, "#060410");
+            ctx.fillStyle = leftGutter;
+            ctx.beginPath();
+            ctx.moveTo(0, HORIZON_Y); ctx.lineTo(TRACK_LEFT_TOP, HORIZON_Y);
+            ctx.lineTo(TRACK_LEFT_BOT, GROUND_Y); ctx.lineTo(0, GROUND_Y);
+            ctx.closePath(); ctx.fill();
+            // Right gutter
+            ctx.fillStyle = leftGutter;
+            ctx.beginPath();
+            ctx.moveTo(W, HORIZON_Y); ctx.lineTo(TRACK_RIGHT_TOP, HORIZON_Y);
+            ctx.lineTo(TRACK_RIGHT_BOT, GROUND_Y); ctx.lineTo(W, GROUND_Y);
+            ctx.closePath(); ctx.fill();
+
             // ── Neon scrolling grid lines ──
             for (let i = 0; i < NUM_SCROLL_LINES; i++) {
                 let frac = (i / NUM_SCROLL_LINES + scrollOffset) % 1;
@@ -716,18 +852,27 @@
                 let y = HORIZON_Y + (GROUND_Y - HORIZON_Y) * pFrac;
                 let x0 = trackX(0, y);
                 let x1 = trackX(1, y);
-                const alpha = 0.08 + pFrac * 0.18;
+                const alpha = 0.06 + pFrac * 0.22;
                 ctx.strokeStyle = `rgba(160,80,255,${alpha.toFixed(2)})`;
                 ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(x0, y);
-                ctx.lineTo(x1, y);
-                ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
             }
 
+            // ── Track center reflection stripe ──
+            const refl = ctx.createLinearGradient(0, HORIZON_Y, 0, GROUND_Y);
+            refl.addColorStop(0, "rgba(180,80,255,0.0)");
+            refl.addColorStop(0.5, "rgba(180,80,255,0.06)");
+            refl.addColorStop(1, "rgba(180,80,255,0.0)");
+            ctx.fillStyle = refl;
+            const midL0 = trackX(0.45, HORIZON_Y), midR0 = trackX(0.55, HORIZON_Y);
+            const midLB = trackX(0.45, GROUND_Y), midRB = trackX(0.55, GROUND_Y);
+            ctx.beginPath();
+            ctx.moveTo(midL0, HORIZON_Y); ctx.lineTo(midR0, HORIZON_Y);
+            ctx.lineTo(midRB, GROUND_Y); ctx.lineTo(midLB, GROUND_Y);
+            ctx.closePath(); ctx.fill();
+
             // ── Lane dividers — cyan neon dashes ──
-            ctx.shadowColor = "#00e5ff";
-            ctx.shadowBlur = 6;
+            ctx.shadowColor = "#00e5ff"; ctx.shadowBlur = 6;
             ctx.strokeStyle = "rgba(0,220,255,0.6)";
             ctx.lineWidth = 2;
             ctx.setLineDash([18, 14]);
@@ -741,32 +886,19 @@
             ctx.shadowBlur = 0;
 
             // ── Outer track edges — purple neon ──
-            ctx.shadowColor = "#b44fff";
-            ctx.shadowBlur = 10;
-            ctx.strokeStyle = "rgba(180,80,255,0.85)";
+            ctx.shadowColor = "#b44fff"; ctx.shadowBlur = 12;
+            ctx.strokeStyle = "rgba(180,80,255,0.9)";
             ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(TRACK_LEFT_TOP, HORIZON_Y);
-            ctx.lineTo(TRACK_LEFT_BOT, GROUND_Y);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(TRACK_RIGHT_TOP, HORIZON_Y);
-            ctx.lineTo(TRACK_RIGHT_BOT, GROUND_Y);
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-            ctx.shadowColor = "transparent";
+            ctx.beginPath(); ctx.moveTo(TRACK_LEFT_TOP, HORIZON_Y); ctx.lineTo(TRACK_LEFT_BOT, GROUND_Y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(TRACK_RIGHT_TOP, HORIZON_Y); ctx.lineTo(TRACK_RIGHT_BOT, GROUND_Y); ctx.stroke();
+            ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
 
             // ── Horizon neon line ──
-            ctx.shadowColor = "#ff2d78";
-            ctx.shadowBlur = 12;
-            ctx.strokeStyle = "rgba(255,45,120,0.8)";
+            ctx.shadowColor = "#ff2d78"; ctx.shadowBlur = 14;
+            ctx.strokeStyle = "rgba(255,45,120,0.85)";
             ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, HORIZON_Y);
-            ctx.lineTo(W, HORIZON_Y);
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-            ctx.shadowColor = "transparent";
+            ctx.beginPath(); ctx.moveTo(0, HORIZON_Y); ctx.lineTo(W, HORIZON_Y); ctx.stroke();
+            ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
         }
 
         // ─── Player ───────────────────────────────────────────────────
