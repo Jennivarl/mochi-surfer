@@ -331,6 +331,87 @@
         #wallet-skip-btn:hover {
             background: rgba(180, 80, 255, 0.08);
         }
+
+        /* Session code section */
+        .session-divider {
+            width: 100%;
+            border: none;
+            border-top: 1px solid rgba(180, 80, 255, 0.2);
+            margin: 0;
+        }
+
+        .session-label {
+            color: rgba(180, 80, 255, 0.7);
+            font-size: 10px;
+            font-family: 'Orbitron', Arial, sans-serif;
+            letter-spacing: 1.5px;
+            text-align: center;
+        }
+
+        #session-row {
+            display: flex;
+            gap: 6px;
+            width: 100%;
+        }
+
+        #session-code-input {
+            flex: 1;
+            background: rgba(180, 80, 255, 0.06);
+            border: 1px solid rgba(180, 80, 255, 0.4);
+            border-radius: 6px;
+            color: #fff;
+            font-size: 13px;
+            font-family: 'Orbitron', Arial, sans-serif;
+            letter-spacing: 2px;
+            padding: 6px 8px;
+            outline: none;
+            text-transform: uppercase;
+        }
+
+        #session-code-input::placeholder {
+            color: rgba(180, 80, 255, 0.35);
+            font-family: Arial, sans-serif;
+            letter-spacing: normal;
+            font-size: 11px;
+        }
+
+        #session-join-btn {
+            background: rgba(42, 8, 69, 0.9);
+            border: 1.5px solid #b44fff;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-family: Arial, sans-serif;
+            white-space: nowrap;
+        }
+
+        #session-join-btn:hover {
+            background: rgba(80, 20, 120, 0.9);
+        }
+
+        #session-status {
+            font-size: 10px;
+            text-align: center;
+            min-height: 14px;
+            color: rgba(180, 180, 180, 0.7);
+        }
+
+        /* Active session badge shown on submit panel */
+        #gl-session-badge {
+            display: none;
+            font-size: 9px;
+            font-family: 'Orbitron', Arial, sans-serif;
+            letter-spacing: 1.5px;
+            color: #b44fff;
+            text-align: center;
+            border: 1px solid rgba(180, 80, 255, 0.3);
+            border-radius: 4px;
+            padding: 2px 6px;
+            background: rgba(180, 80, 255, 0.08);
+        }
     </style>
 </head>
 
@@ -346,14 +427,23 @@
                 <button id="wallet-connect-btn">🦊 Connect MetaMask</button>
                 <div id="wallet-overlay-status"></div>
                 <button id="wallet-skip-btn">Play without wallet</button>
+                <hr class="session-divider">
+                <div class="session-label">TOURNAMENT CODE</div>
+                <div id="session-row">
+                    <input id="session-code-input" type="text" maxlength="6" placeholder="Optional…" autocomplete="off"
+                        spellcheck="false">
+                    <button id="session-join-btn">Join</button>
+                </div>
+                <div id="session-status">Enter a code to join a private session</div>
             </div>
         </div>
 
         <!-- GenLayer blockchain submit panel (shown on game over) -->
         <div id="gl-panel">
             <div class="gl-title">LEADERBOARD</div>
+            <div id="gl-session-badge"></div>
             <div id="gl-input-row">
-                <input id="gl-name" type="text" maxlength="20" placeholder="Your name (1–20 chars)…" autocomplete="off"
+                <input id="gl-name" type="text" maxlength="20" placeholder="Your name…" autocomplete="off"
                     spellcheck="false" />
                 <button id="gl-submit-btn">Submit</button>
             </div>
@@ -365,7 +455,7 @@
         <div id="gl-leaderboard-overlay">
             <div class="gl-lb-card">
                 <div class="gl-lb-title">TOP SCORES</div>
-                <div class="gl-lb-subtitle">Global leaderboard</div>
+                <div class="gl-lb-subtitle" id="gl-lb-subtitle">Global leaderboard</div>
                 <div id="gl-scores-list"></div>
                 <button id="gl-lb-close">✕ Close</button>
             </div>
@@ -2201,9 +2291,91 @@
         import { testnetBradbury } from 'https://esm.sh/genlayer-js@0.28.4/chains';
 
         const CONTRACT = '0x1A7346566824c46F29e66f77c0499dA60F08Ef1F';
+        // Max chars for the name portion when a session prefix is prepended
+        // Session prefix format: "CODE:" — code is 4-6 chars, colon = 1, total prefix 5-7 chars.
+        // Contract name field max = 20. We reserve 7 chars for prefix → 13 chars for name.
+        const MAX_NAME_GLOBAL = 20;
+        const MAX_NAME_SESSION = 13;
 
         // Read-only client — no wallet required for leaderboard reads
         const readClient = createClient({ chain: testnetBradbury });
+
+        // ─── Session Code State ────────────────────────────────────────
+        // window.sessionCode is null (global) or an uppercase alphanumeric string e.g. "SURF42"
+        window.sessionCode = null;
+
+        function applySessionUI() {
+            const code = window.sessionCode;
+            const badge = document.getElementById('gl-session-badge');
+            const nameInput = document.getElementById('gl-name');
+            const subtitle = document.getElementById('gl-lb-subtitle');
+            if (code) {
+                badge.textContent = 'SESSION: ' + code;
+                badge.style.display = 'block';
+                nameInput.maxLength = MAX_NAME_SESSION;
+                nameInput.placeholder = 'Your name (max ' + MAX_NAME_SESSION + ' chars)…';
+                if (subtitle) subtitle.textContent = 'Session: ' + code;
+            } else {
+                badge.style.display = 'none';
+                nameInput.maxLength = MAX_NAME_GLOBAL;
+                nameInput.placeholder = 'Your name…';
+                if (subtitle) subtitle.textContent = 'Global leaderboard';
+            }
+        }
+
+        // ─── Session Code Input (on wallet overlay) ────────────────────
+        const sessionInput = document.getElementById('session-code-input');
+        const sessionJoinBtn = document.getElementById('session-join-btn');
+        const sessionStatus = document.getElementById('session-status');
+
+        sessionInput.addEventListener('input', () => {
+            // Force uppercase alphanumeric only
+            sessionInput.value = sessionInput.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+        });
+
+        sessionJoinBtn.addEventListener('click', () => {
+            const raw = sessionInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            if (raw.length < 4 || raw.length > 6) {
+                sessionStatus.textContent = 'Code must be 4–6 letters/numbers';
+                sessionStatus.style.color = '#ff2d78';
+                return;
+            }
+            window.sessionCode = raw;
+            sessionStatus.textContent = '✓ Session joined: ' + raw;
+            sessionStatus.style.color = '#39ff8e';
+            sessionJoinBtn.textContent = 'Leave';
+            sessionJoinBtn.style.borderColor = '#39ff8e';
+            applySessionUI();
+        });
+
+        // Allow leaving a session by clicking Join again when already joined
+        sessionJoinBtn.addEventListener('click', () => { }, false);
+        // Rewrite: toggle join/leave
+        sessionJoinBtn.onclick = () => {
+            if (window.sessionCode) {
+                // Leave session
+                window.sessionCode = null;
+                sessionInput.value = '';
+                sessionStatus.textContent = 'Enter a code to join a private session';
+                sessionStatus.style.color = 'rgba(180,180,180,0.7)';
+                sessionJoinBtn.textContent = 'Join';
+                sessionJoinBtn.style.borderColor = '';
+                applySessionUI();
+                return;
+            }
+            const raw = sessionInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            if (raw.length < 4 || raw.length > 6) {
+                sessionStatus.textContent = 'Code must be 4–6 letters/numbers';
+                sessionStatus.style.color = '#ff2d78';
+                return;
+            }
+            window.sessionCode = raw;
+            sessionStatus.textContent = '✓ Session joined: ' + raw;
+            sessionStatus.style.color = '#39ff8e';
+            sessionJoinBtn.textContent = 'Leave';
+            sessionJoinBtn.style.borderColor = '#39ff8e';
+            applySessionUI();
+        };
 
         // ─── Wallet Connect Overlay ────────────────────────────────────
         const walletOverlay = document.getElementById('wallet-overlay');
@@ -2216,6 +2388,11 @@
             walletOverlayStatus.style.color = color || 'rgba(180,180,180,0.85)';
         }
 
+        function dismissWalletOverlay() {
+            walletOverlay.style.display = 'none';
+            applySessionUI();
+        }
+
         walletConnectBtn.addEventListener('click', async () => {
             if (!window.ethereum) {
                 const host = window.location.host || 'vmsg.itch.io';
@@ -2225,7 +2402,6 @@
                     '📱 Open this game inside the MetaMask app browser, or install MetaMask on desktop.',
                     '#f4c010'
                 );
-                // Show a tappable link
                 const s = document.getElementById('wallet-overlay-status');
                 s.innerHTML = '📱 <a href="' + mmUrl + '" target="_blank" style="color:#00dcff">Tap here to open in MetaMask</a><br><small style="opacity:.7">Or install MetaMask on desktop</small>';
                 return;
@@ -2236,7 +2412,7 @@
                 const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                 window.walletAddr = accounts[0];
                 setOverlayStatus('✓ Connected: ' + accounts[0].slice(0, 6) + '…' + accounts[0].slice(-4), '#39ff8e');
-                setTimeout(() => { walletOverlay.style.display = 'none'; }, 700);
+                setTimeout(dismissWalletOverlay, 700);
             } catch {
                 walletConnectBtn.disabled = false;
                 setOverlayStatus('Cancelled — try again or play as guest', '#ff6b6b');
@@ -2245,7 +2421,7 @@
 
         walletSkipBtn.addEventListener('click', () => {
             window.walletAddr = null;
-            walletOverlay.style.display = 'none';
+            dismissWalletOverlay();
         });
 
         function escapeHtml(str) {
@@ -2265,15 +2441,32 @@
 
         async function loadTopScores() {
             const list = document.getElementById('gl-scores-list');
+            const subtitle = document.getElementById('gl-lb-subtitle');
+            const code = window.sessionCode;
             list.innerHTML = '<div class="gl-loading">Loading on-chain data…</div>';
+            if (subtitle) subtitle.textContent = code ? 'Session: ' + code : 'Global leaderboard';
             try {
-                const scores = await readClient.readContract({
+                // Fetch more entries so we can filter down to 10 for a session
+                const fetchCount = code ? 50 : 10;
+                const allScores = await readClient.readContract({
                     address: CONTRACT,
                     functionName: 'get_top_scores',
-                    args: [10]
+                    args: [fetchCount]
                 });
-                if (!scores || scores.length === 0) {
+                if (!allScores || allScores.length === 0) {
                     list.innerHTML = '<div class="gl-no-scores">No scores yet — be the first!</div>';
+                    return;
+                }
+                let scores = allScores;
+                if (code) {
+                    const prefix = code + ':';
+                    scores = allScores
+                        .filter(s => String(s.name).startsWith(prefix))
+                        .slice(0, 10)
+                        .map(s => ({ ...s, name: String(s.name).slice(prefix.length) }));
+                }
+                if (scores.length === 0) {
+                    list.innerHTML = '<div class="gl-no-scores">No scores for session ' + escapeHtml(code) + ' yet!</div>';
                     return;
                 }
                 list.innerHTML = scores.map((s, i) =>
@@ -2293,6 +2486,7 @@
             const panel = document.getElementById('gl-panel');
             panel.dataset.score = String(scoreVal);
             panel.style.display = 'flex';
+            applySessionUI();
         };
 
         // Called by game script on restart
@@ -2307,18 +2501,23 @@
         // Submit score via MetaMask
         document.getElementById('gl-submit-btn').addEventListener('click', async () => {
             const nameInput = document.getElementById('gl-name');
-            const name = nameInput.value.trim();
+            const rawName = nameInput.value.trim();
             const scoreVal = parseInt(document.getElementById('gl-panel').dataset.score || '0');
             const btn = document.getElementById('gl-submit-btn');
+            const code = window.sessionCode;
+            const maxLen = code ? MAX_NAME_SESSION : MAX_NAME_GLOBAL;
 
-            if (name.length < 1 || name.length > 20) {
-                setStatus('Name must be 1–20 characters', '#ff2d78');
+            if (rawName.length < 1 || rawName.length > maxLen) {
+                setStatus('Name must be 1–' + maxLen + ' characters', '#ff2d78');
                 return;
             }
             if (!window.ethereum) {
                 setStatus('MetaMask not found — install it to submit on-chain', '#ff2d78');
                 return;
             }
+
+            // Prefix with session code so scores are tagged on-chain
+            const name = code ? code + ':' + rawName : rawName;
 
             btn.disabled = true;
             try {
@@ -2332,13 +2531,11 @@
                     setStatus('Submitting…');
                 }
 
-                // Create write client with MetaMask as the signing transport
                 const writeClient = createClient({
                     chain: testnetBradbury,
                     account: walletAddr,
                     provider: window.ethereum
                 });
-                // Switch MetaMask to GenLayer testnet (adds the network if not present)
                 setStatus('Switching to GenLayer network…');
                 await writeClient.connect('testnetBradbury');
 
