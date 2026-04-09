@@ -744,10 +744,10 @@
         let elapsedTime = 0;
         let highScore = 0;
         const MAX_SPEED = 1.4;
-        const SESSION_DURATION = 180; // 3 minutes solo
         const SESSION_DURATION_TOURNAMENT = 300; // 5 minutes tournament
-        let sessionTimeLeft = SESSION_DURATION;
-        function getSessionDuration() { return window.sessionCode ? SESSION_DURATION_TOURNAMENT : SESSION_DURATION; }
+        let sessionTimeLeft = SESSION_DURATION_TOURNAMENT;
+        // Solo = endless run (no timer). Tournament = 5 min countdown.
+        function getSessionDuration() { return SESSION_DURATION_TOURNAMENT; }
 
         // ─── Screen Shake ─────────────────────────────────────────────
         let shakeTimer = 0;
@@ -920,15 +920,18 @@
             const sec = dt / 1000;
             elapsedTime += dt;
 
-            sessionTimeLeft -= sec;
-            if (sessionTimeLeft <= 0) {
-                sessionTimeLeft = 0;
-                if (score > highScore) highScore = Math.floor(score);
-                gameOver = true;
-                gameState = 'gameover';
-                triggerShake(10);
-                if (typeof window.mochiOnGameOver === 'function') window.mochiOnGameOver(Math.floor(score));
-                return;
+            // Countdown timer only active in tournament mode
+            if (window.sessionCode) {
+                sessionTimeLeft -= sec;
+                if (sessionTimeLeft <= 0) {
+                    sessionTimeLeft = 0;
+                    if (score > highScore) highScore = Math.floor(score);
+                    gameOver = true;
+                    gameState = 'gameover';
+                    triggerShake(10);
+                    if (typeof window.mochiOnGameOver === 'function') window.mochiOnGameOver(Math.floor(score));
+                    return;
+                }
             }
 
             // Score: distance points + coin bonus
@@ -1976,17 +1979,19 @@
             ctx.font = "bold 22px Arial";
             ctx.fillText(coinCount, W - 14, 38);
 
-            // Countdown timer — center of HUD bar
-            const mins = Math.floor(sessionTimeLeft / 60);
-            const secs = String(Math.floor(sessionTimeLeft % 60)).padStart(2, '0');
-            const timeStr = mins + ':' + secs;
-            const timerColor = sessionTimeLeft <= 30 ? '#ff2d78' : sessionTimeLeft <= 60 ? '#f4c010' : 'rgba(255,255,255,0.65)';
-            if (sessionTimeLeft <= 30) { ctx.shadowColor = '#ff2d78'; ctx.shadowBlur = 10; }
-            ctx.fillStyle = timerColor;
-            ctx.font = 'bold 16px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(timeStr, W / 2, 33);
-            ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+            // Countdown timer — center of HUD bar (tournament only)
+            if (window.sessionCode) {
+                const mins = Math.floor(sessionTimeLeft / 60);
+                const secs = String(Math.floor(sessionTimeLeft % 60)).padStart(2, '0');
+                const timeStr = mins + ':' + secs;
+                const timerColor = sessionTimeLeft <= 30 ? '#ff2d78' : sessionTimeLeft <= 60 ? '#f4c010' : 'rgba(255,255,255,0.65)';
+                if (sessionTimeLeft <= 30) { ctx.shadowColor = '#ff2d78'; ctx.shadowBlur = 10; }
+                ctx.fillStyle = timerColor;
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(timeStr, W / 2, 33);
+                ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+            }
 
             // Speed bar
             const speedFrac = (gameSpeed - 0.4) / (MAX_SPEED - 0.4);
@@ -3051,12 +3056,40 @@
         }
 
         walletConnectBtn.addEventListener('click', () => {
-            // Re-request announcements to pick up any newly installed wallets.
-            // 300ms gives all extensions enough time to respond (Rabby can be slow).
+            // Re-request EIP-6963 announcements, then decide:
+            // - 1 wallet detected → connect directly (no picker)
+            // - 0 wallets → show no-wallet message
+            // - 2+ wallets → show picker to choose
             window.dispatchEvent(new Event('eip6963:requestProvider'));
             setTimeout(() => {
-                buildWalletOptions();
-                walletPickerBackdrop.classList.add('open');
+                // Collect all available providers
+                const opts = [];
+                for (const { info, provider } of window.__eip6963Providers) {
+                    opts.push({ name: info.name, icon: info.icon, provider });
+                }
+                if (window.ethereum) {
+                    const alreadyListed = opts.some(o => o.provider === window.ethereum);
+                    if (!alreadyListed) {
+                        const name = window.ethereum.isMetaMask ? 'MetaMask'
+                            : window.ethereum.isCoinbaseWallet ? 'Coinbase Wallet'
+                                : window.ethereum.isRabby ? 'Rabby'
+                                    : window.ethereum.isBraveWallet ? 'Brave Wallet'
+                                        : window.ethereum.isOkxWallet ? 'OKX Wallet'
+                                            : 'Browser Wallet';
+                        opts.push({ name, icon: null, provider: window.ethereum });
+                    }
+                }
+                if (opts.length === 1) {
+                    // Only one wallet — connect straight away, no picker needed
+                    connectWithProvider(opts[0].provider, opts[0].name);
+                } else if (opts.length === 0) {
+                    buildWalletOptions(); // will show the "no wallet detected" message
+                    walletPickerBackdrop.classList.add('open');
+                } else {
+                    // Multiple wallets — let user choose
+                    buildWalletOptions();
+                    walletPickerBackdrop.classList.add('open');
+                }
             }, 300);
         });
 
