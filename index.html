@@ -3042,6 +3042,7 @@
             setOverlayStatus('Connecting to ' + name + '…');
             try {
                 const accounts = await provider.request({ method: 'eth_requestAccounts' });
+                if (!accounts || accounts.length === 0) throw new Error('No accounts returned');
                 window.walletAddr = accounts[0];
                 window.activeProvider = provider;
                 window._walletName = name;
@@ -3049,48 +3050,59 @@
                 setOverlayStatus('✓ ' + name + ': ' + accounts[0].slice(0, 6) + '…' + accounts[0].slice(-4), '#39ff8e');
                 updateHudProfile();
                 setTimeout(dismissWalletOverlay, 700);
-            } catch {
+            } catch (err) {
                 walletConnectBtn.disabled = false;
-                setOverlayStatus('Cancelled — try again or play as guest', '#ff6b6b');
+                const msg = err?.message || String(err);
+                if (msg.toLowerCase().includes('rejected') || msg.toLowerCase().includes('denied') || err?.code === 4001) {
+                    setOverlayStatus('Connection rejected — try again or play as guest', '#ff6b6b');
+                } else {
+                    setOverlayStatus('Error: ' + msg.substring(0, 80), '#ff6b6b');
+                }
             }
         }
 
-        walletConnectBtn.addEventListener('click', () => {
-            // Re-request EIP-6963 announcements, then decide:
-            // - 1 wallet detected → connect directly (no picker)
-            // - 0 wallets → show no-wallet message
-            // - 2+ wallets → show picker to choose
+        walletConnectBtn.addEventListener('click', async () => {
+            walletConnectBtn.disabled = true;
+            setOverlayStatus('Connecting…');
+
+            // Collect providers: EIP-6963 first, then window.ethereum fallback
             window.dispatchEvent(new Event('eip6963:requestProvider'));
-            setTimeout(() => {
-                // Collect all available providers
-                const opts = [];
-                for (const { info, provider } of window.__eip6963Providers) {
-                    opts.push({ name: info.name, icon: info.icon, provider });
+            // Small delay to let EIP-6963 announcements arrive
+            await new Promise(r => setTimeout(r, 250));
+
+            const opts = [];
+            for (const { info, provider } of window.__eip6963Providers) {
+                opts.push({ name: info.name, icon: info.icon, provider });
+            }
+            if (window.ethereum) {
+                const alreadyListed = opts.some(o => o.provider === window.ethereum);
+                if (!alreadyListed) {
+                    const n = window.ethereum.isMetaMask ? 'MetaMask'
+                        : window.ethereum.isCoinbaseWallet ? 'Coinbase Wallet'
+                            : window.ethereum.isRabby ? 'Rabby'
+                                : window.ethereum.isBraveWallet ? 'Brave Wallet'
+                                    : window.ethereum.isOkxWallet ? 'OKX Wallet'
+                                        : 'Browser Wallet';
+                    opts.push({ name: n, icon: null, provider: window.ethereum });
                 }
-                if (window.ethereum) {
-                    const alreadyListed = opts.some(o => o.provider === window.ethereum);
-                    if (!alreadyListed) {
-                        const name = window.ethereum.isMetaMask ? 'MetaMask'
-                            : window.ethereum.isCoinbaseWallet ? 'Coinbase Wallet'
-                                : window.ethereum.isRabby ? 'Rabby'
-                                    : window.ethereum.isBraveWallet ? 'Brave Wallet'
-                                        : window.ethereum.isOkxWallet ? 'OKX Wallet'
-                                            : 'Browser Wallet';
-                        opts.push({ name, icon: null, provider: window.ethereum });
-                    }
-                }
-                if (opts.length === 1) {
-                    // Only one wallet — connect straight away, no picker needed
-                    connectWithProvider(opts[0].provider, opts[0].name);
-                } else if (opts.length === 0) {
-                    buildWalletOptions(); // will show the "no wallet detected" message
-                    walletPickerBackdrop.classList.add('open');
-                } else {
-                    // Multiple wallets — let user choose
-                    buildWalletOptions();
-                    walletPickerBackdrop.classList.add('open');
-                }
-            }, 300);
+            }
+
+            if (opts.length === 0) {
+                walletConnectBtn.disabled = false;
+                setOverlayStatus('No wallet found — install MetaMask or Rabby', '#ff6b6b');
+                return;
+            }
+
+            if (opts.length === 1) {
+                // Only one wallet — connect directly without picker
+                await connectWithProvider(opts[0].provider, opts[0].name);
+            } else {
+                // Multiple wallets — let user pick
+                walletConnectBtn.disabled = false;
+                setOverlayStatus('');
+                buildWalletOptions();
+                walletPickerBackdrop.classList.add('open');
+            }
         });
 
         // "Play without wallet" — if session code active, ask for guest name first
