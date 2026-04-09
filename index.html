@@ -470,55 +470,6 @@
             font-family: Arial, sans-serif;
         }
 
-        /* Mobile — open game in wallet browser links */
-        #mobile-dapp-links {
-            display: none;
-            flex-direction: column;
-            gap: 5px;
-            width: 100%;
-            margin-top: 2px;
-        }
-
-        .wdl-label {
-            font-size: 9px;
-            letter-spacing: 1.5px;
-            color: rgba(180, 80, 255, 0.7);
-            text-align: center;
-            font-family: 'Orbitron', Arial, sans-serif;
-        }
-
-        .wdl-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 6px;
-        }
-
-        .wdl-btn {
-            display: block;
-            padding: 9px 6px;
-            border-radius: 7px;
-            text-decoration: none;
-            font-weight: bold;
-            font-size: 12px;
-            text-align: center;
-            font-family: Arial, sans-serif;
-            transition: opacity 0.15s;
-        }
-
-        .wdl-btn:active {
-            opacity: 0.65;
-        }
-
-        .wdl-full {
-            grid-column: span 2;
-        }
-
-        .wdl-hint {
-            font-size: 10px;
-            color: rgba(180, 180, 180, 0.5);
-            text-align: center;
-        }
-
         #wallet-overlay-status {
             color: rgba(180, 180, 180, 0.85);
             font-size: 11px;
@@ -703,38 +654,6 @@
                 <button id="wallet-connect-btn">⬡ Connect Wallet</button>
                 <div id="wallet-overlay-status"></div>
 
-                <!-- Mobile: open game inside wallet browser -->
-                <div id="mobile-dapp-links">
-                    <hr class="session-divider">
-                    <div class="wdl-label">📱 OPEN GAME IN WALLET BROWSER</div>
-                    <div class="wdl-grid">
-                        <a class="wdl-btn" href="https://metamask.app.link/dapp/vmsg.itch.io/mochi-skate-run"
-                            target="_blank" rel="noopener"
-                            style="background:rgba(229,125,1,0.15);border:1px solid rgba(229,125,1,0.55);color:#e07b01">🦊
-                            MetaMask</a>
-                        <a class="wdl-btn" href="rabby://dapp?url=https%3A%2F%2Fvmsg.itch.io%2Fmochi-skate-run"
-                            target="_blank" rel="noopener"
-                            style="background:rgba(134,99,255,0.15);border:1px solid rgba(134,99,255,0.55);color:#8a63ff">🐰
-                            Rabby</a>
-                        <a class="wdl-btn"
-                            href="https://app.zerion.io/browser?url=https%3A%2F%2Fvmsg.itch.io%2Fmochi-skate-run"
-                            target="_blank" rel="noopener"
-                            style="background:rgba(84,196,255,0.12);border:1px solid rgba(84,196,255,0.45);color:#54c4ff">🔵
-                            Zerion</a>
-                        <a class="wdl-btn"
-                            href="https://www.okx.com/download?deeplink=okx%3A%2F%2Fwallet%2Fdapp%2Fdetails%3FdappUrl%3Dhttps%253A%252F%252Fvmsg.itch.io%252Fmochi-skate-run"
-                            target="_blank" rel="noopener"
-                            style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.28);color:#e0e0e0">⬛
-                            OKX</a>
-                        <a class="wdl-btn wdl-full"
-                            href="https://go.cb-wallet.com/dapp?url=https%3A%2F%2Fvmsg.itch.io%2Fmochi-skate-run"
-                            target="_blank" rel="noopener"
-                            style="background:rgba(22,82,240,0.14);border:1px solid rgba(22,82,240,0.5);color:#4d84f0">💙
-                            Coinbase Wallet</a>
-                    </div>
-                    <div class="wdl-hint">Tap → wallet opens game in its browser → connect auto-detected</div>
-                </div>
-
                 <!-- Wallet picker modal (inside overlay card) -->
                 <div id="wallet-picker-backdrop">
                     <div id="wallet-picker-modal">
@@ -774,9 +693,18 @@
         <!-- My-score popup (shown on chip tap) -->
         <div id="my-score-toast"></div>
 
+        <!-- Tournament players panel (side panel, shown when session active) -->
+        <div id="tournament-players-panel"
+            style="display:none;position:absolute;top:44px;right:4px;width:130px;background:rgba(8,5,26,0.93);border:1px solid rgba(180,80,255,0.5);border-radius:8px;padding:7px 8px;z-index:15;font-family:Arial,sans-serif;">
+            <div
+                style="font-size:8px;letter-spacing:1.5px;color:rgba(0,220,255,0.7);font-family:'Orbitron',Arial,sans-serif;margin-bottom:5px;text-align:center;">
+                PLAYERS IN ROOM</div>
+            <div id="tournament-players-list"
+                style="font-size:11px;color:rgba(200,200,220,0.85);display:flex;flex-direction:column;gap:3px;"></div>
+        </div>
+
         <!-- GenLayer blockchain submit panel (shown on game over) -->
         <div id="gl-panel">
-            <div class="gl-title">LEADERBOARD</div>
             <div id="gl-session-badge"></div>
             <!-- wallet submit -->
             <div id="gl-input-row">
@@ -2200,7 +2128,11 @@
         // ─── Draw ─────────────────────────────────────────────────────
         // Button hit-test helper
         const restartBtn = { x: W / 2 - 100, y: 0, w: 200, h: 52 }; // y set in draw
+        const dismissBtn = { x: W / 2 - 100, y: 0, w: 200, h: 44 };  // "Back to Menu" on game-over
+        const closeBtn = { x: W / 2 - 14, y: 0, w: 28, h: 28 };    // ✕ corner close
         const startBtn = { x: W / 2 - 110, y: 0, w: 220, h: 52 };
+        let startCountdown = 0;      // >0 while counting down 3…2…1
+        let startCountdownId = null; // setInterval handle
 
         function drawRoundedRect(x, y, w, h, r, fill, stroke) {
             ctx.beginPath();
@@ -2423,6 +2355,17 @@
             ctx.font = "14px Arial";
             ctx.fillText("BEST  " + highScore, cx, cy + 112);
 
+            // ✕ Close button (top-right corner of card)
+            const xBtnX = cx + 152 - 28;
+            const xBtnY = cy - 210 + 6;
+            closeBtn.x = xBtnX; closeBtn.y = xBtnY;
+            ctx.fillStyle = "rgba(255,255,255,0.12)";
+            ctx.beginPath(); ctx.roundRect(xBtnX, xBtnY, 28, 28, 6); ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.55)";
+            ctx.font = "bold 14px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("✕", xBtnX + 14, xBtnY + 19);
+
             // Restart button — purple neon
             const btnY = cy + 136;
             restartBtn.y = btnY;
@@ -2434,6 +2377,18 @@
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 20px Arial";
             ctx.fillText("↺  RESTART", cx, btnY + 34);
+
+            // Dismiss button — return to menu without restarting
+            const dimY = cy + 162 + 52 + 6;
+            dismissBtn.y = dimY;
+            ctx.fillStyle = "rgba(0,220,255,0.07)";
+            ctx.strokeStyle = "rgba(0,220,255,0.35)";
+            ctx.lineWidth = 1.2;
+            ctx.beginPath(); ctx.roundRect(dismissBtn.x, dimY, dismissBtn.w, dismissBtn.h, 8); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "rgba(0,220,255,0.75)";
+            ctx.font = "14px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("← Back to Menu", cx, dimY + 27);
         }
 
         function drawStartScreen() {
@@ -2497,7 +2452,7 @@
             ctx.fillText("Jump walls  •  Slide under electric bars", cx, cy + 50);
             ctx.fillText("Collect coins for bonus points!", cx, cy + 70);
 
-            // Start button — cyan neon
+            // Start button — cyan neon (or countdown overlay)
             const btnY = cy + 96;
             startBtn.y = btnY;
             ctx.shadowColor = "#00e5ff"; ctx.shadowBlur = 18;
@@ -2505,9 +2460,15 @@
             ctx.strokeStyle = "#00e5ff"; ctx.lineWidth = 2;
             ctx.beginPath(); ctx.roundRect(startBtn.x, btnY, startBtn.w, startBtn.h, 12); ctx.stroke();
             ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
-            ctx.fillStyle = "#00e5ff";
-            ctx.font = "bold 22px Arial";
-            ctx.fillText("▶  TAP TO PLAY", cx, btnY + 35);
+            if (startCountdown > 0) {
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 30px Arial";
+                ctx.fillText(startCountdown, cx, btnY + 37);
+            } else {
+                ctx.fillStyle = "#00e5ff";
+                ctx.font = "bold 22px Arial";
+                ctx.fillText("▶  TAP TO PLAY", cx, btnY + 35);
+            }
         }
 
         function draw() {
@@ -2591,8 +2552,46 @@
         function handleTap(e) {
             e.preventDefault();
             const pos = getCanvasPos(e);
-            if (gameState === 'start') { resetGame(); return; }
-            if (gameState === 'gameover' && isInsideBtn(pos, restartBtn)) { resetGame(); return; }
+            if (gameState === 'gameover') {
+                // ✕ close button (top-right) — dismiss to 'start' menu
+                if (isInsideBtn(pos, closeBtn)) { dismissGameOver(); return; }
+                // ← Back to Menu
+                if (isInsideBtn(pos, dismissBtn)) { dismissGameOver(); return; }
+                // ↺ Restart
+                if (isInsideBtn(pos, restartBtn)) { beginStartCountdown(); return; }
+                return;
+            }
+            if (gameState === 'start') {
+                if (startCountdown > 0) return; // already counting, ignore extra taps
+                beginStartCountdown();
+                return;
+            }
+        }
+
+        function dismissGameOver() {
+            // Return to start screen without resetting score display — profile chip stays
+            gameState = 'start';
+            startCountdown = 0;
+            clearInterval(startCountdownId);
+            startCountdownId = null;
+            // Show gl-panel (score panel) behind the start screen — user can see leaderboard btn
+            // but hide gl-panel so screen is clean; mochiOnGameOver already showed it
+            // Keep it open so user can click View Leaderboard if they want
+        }
+
+        function beginStartCountdown() {
+            if (startCountdown > 0) return;
+            startCountdown = 3;
+            clearInterval(startCountdownId);
+            startCountdownId = setInterval(() => {
+                startCountdown--;
+                if (startCountdown <= 0) {
+                    clearInterval(startCountdownId);
+                    startCountdownId = null;
+                    startCountdown = 0;
+                    resetGame();
+                }
+            }, 1000);
         }
 
         canvas.addEventListener('click', handleTap);
@@ -2777,6 +2776,8 @@
 
         function joinSession(raw) {
             window.sessionCode = raw;
+            window._tournamentPlayers = [];
+            window._tournamentScores = [];
             sessionStatus.textContent = '✓ Joined session: ' + raw + ' — scores will be tagged to this code';
             sessionStatus.style.color = '#39ff8e';
             sessionJoinBtn.textContent = 'Leave';
@@ -2788,12 +2789,15 @@
         function leaveSession() {
             window.sessionCode = null;
             window.guestName = null;
+            window._tournamentPlayers = [];
+            window._tournamentScores = [];
             sessionInput.value = '';
             sessionStatus.textContent = '';
             sessionStatus.style.color = 'rgba(180,180,180,0.7)';
             sessionJoinBtn.textContent = 'Join';
             sessionJoinBtn.style.borderColor = '';
             guestNameRow.style.display = 'none';
+            document.getElementById('tournament-players-panel').style.display = 'none';
         }
 
         sessionJoinBtn.onclick = () => {
@@ -2814,15 +2818,23 @@
             for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
             sessionInput.value = code;
             joinSession(code);
-            // 2-minute lobby countdown before the session "opens"
+            refreshPlayersPanel();
+            // 2-minute lobby countdown — at end, auto-start tournament for all players
             let lobbySecsLeft = 120;
             const lobbyInterval = setInterval(() => {
                 lobbySecsLeft--;
                 if (window.sessionCode !== code) { clearInterval(lobbyInterval); return; }
                 if (lobbySecsLeft <= 0) {
                     clearInterval(lobbyInterval);
-                    sessionStatus.textContent = '\u25b6 Room ' + code + ' is LIVE \u2014 share with players!';
+                    sessionStatus.textContent = '\u25b6 Room ' + code + ' is LIVE!';
                     sessionStatus.style.color = '#39ff8e';
+                    // Mark all waiting players as playing
+                    (window._tournamentPlayers || []).forEach(p => { if (p.status === 'waiting') p.status = 'playing'; });
+                    refreshPlayersPanel();
+                    // Auto-start the game with 3-sec countdown (if wallet overlay is gone)
+                    if (walletOverlay.style.display === 'none') {
+                        if (typeof beginStartCountdown === 'function') beginStartCountdown();
+                    }
                     return;
                 }
                 const m = Math.floor(lobbySecsLeft / 60);
@@ -2841,23 +2853,6 @@
         const walletSkipBtn = document.getElementById('wallet-skip-btn');
         const walletOverlayStatus = document.getElementById('wallet-overlay-status');
 
-        // Show mobile deep-link section:
-        // - Always show on mobile when inside a wallet's browser (ethereum present but EIP-6963 may not fire yet)
-        // - Show on mobile when no wallet at all
-        // - Hide on desktop
-        (function () {
-            const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-            if (isMobile) {
-                // Delay slightly so wallet browser can inject window.ethereum first
-                setTimeout(function () {
-                    // If a wallet injected, hide the links — user can just tap Connect Wallet
-                    const hasWallet = window.ethereum || (window.__eip6963Providers && window.__eip6963Providers.length > 0);
-                    const el = document.getElementById('mobile-dapp-links');
-                    if (el) el.style.display = hasWallet ? 'none' : 'flex';
-                }, 800);
-            }
-        }());
-
         function setOverlayStatus(msg, color) {
             walletOverlayStatus.textContent = msg;
             walletOverlayStatus.style.color = color || 'rgba(180,180,180,0.85)';
@@ -2866,6 +2861,35 @@
         function dismissWalletOverlay() {
             walletOverlay.style.display = 'none';
             applySessionUI();
+            updateHudProfile();
+        }
+
+        // ─── Tournament player list ────────────────────────────────────
+        window._tournamentPlayers = []; // { name, status: 'waiting'|'playing'|'done' }
+        window._tournamentScores = [];
+
+        function registerTournamentPlayer(name) {
+            if (!window._tournamentPlayers.find(p => p.name === name)) {
+                window._tournamentPlayers.push({ name, status: 'waiting' });
+                refreshPlayersPanel();
+            }
+        }
+
+        function refreshPlayersPanel() {
+            const panel = document.getElementById('tournament-players-panel');
+            const list = document.getElementById('tournament-players-list');
+            if (!window.sessionCode) { panel.style.display = 'none'; return; }
+            panel.style.display = 'block';
+            if (window._tournamentPlayers.length === 0) {
+                list.innerHTML = '<span style="opacity:0.45;font-size:10px">No players yet</span>';
+                return;
+            }
+            list.innerHTML = window._tournamentPlayers.map(p => {
+                const dot = p.status === 'playing' ? '🟢' : p.status === 'done' ? '🏁' : '⏳';
+                return '<div style="display:flex;justify-content:space-between;gap:4px;">'
+                    + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px">' + escapeHtml(p.name) + '</span>'
+                    + '<span>' + dot + '</span></div>';
+            }).join('');
         }
 
         // ─── EIP-6963: listener was set up in the early plain script (window.__eip6963Providers).
@@ -2957,7 +2981,12 @@
             if (!el) return;
             if (window.walletAddr) {
                 const a = window.walletAddr;
-                el.innerHTML = '<span style="opacity:0.65;font-size:7px">WALLET — tap for best score</span><span class="hud-uname">' + a.slice(0, 6) + '…' + a.slice(-4) + '</span>';
+                const short = a.slice(0, 6) + '…' + a.slice(-4);
+                const name = window._walletName || short;
+                el.innerHTML = '<span style="opacity:0.6;font-size:7px">WALLET — tap for best score</span><span class="hud-uname">' + name + '</span>';
+                el.style.display = 'block';
+            } else if (window.guestName) {
+                el.innerHTML = '<span style="opacity:0.6;font-size:7px">GUEST — tap for best score</span><span class="hud-uname">' + window.guestName + '</span>';
                 el.style.display = 'block';
             } else {
                 el.style.display = 'none';
@@ -2967,8 +2996,17 @@
 
         let _myScoreTimer = null;
         async function showMyScore() {
-            if (!window.walletAddr) return;
             const toast = document.getElementById('my-score-toast');
+            // Guest: show locally tracked high score
+            if (!window.walletAddr && window.guestName) {
+                const best = window._guestBest || 0;
+                toast.innerHTML = '<span class="mst-label">' + window.guestName + ' — BEST</span><span class="mst-score">' + (best > 0 ? Number(best).toLocaleString() : '—') + '</span>';
+                toast.style.display = 'block';
+                clearTimeout(_myScoreTimer);
+                _myScoreTimer = setTimeout(() => { toast.style.display = 'none'; }, 5000);
+                return;
+            }
+            if (!window.walletAddr) return;
             toast.innerHTML = '<span class="mst-label">YOUR BEST</span><span class="mst-score">…</span>';
             toast.style.display = 'block';
             clearTimeout(_myScoreTimer);
@@ -3001,6 +3039,7 @@
                 const accounts = await provider.request({ method: 'eth_requestAccounts' });
                 window.walletAddr = accounts[0];
                 window.activeProvider = provider;
+                window._walletName = name;
                 window.guestName = null;
                 setOverlayStatus('✓ ' + name + ': ' + accounts[0].slice(0, 6) + '…' + accounts[0].slice(-4), '#39ff8e');
                 updateHudProfile();
@@ -3042,6 +3081,7 @@
                 return;
             }
             window.guestName = raw;
+            if (window.sessionCode) registerTournamentPlayer(raw);
             updateHudProfile();
             dismissWalletOverlay();
         });
@@ -3062,8 +3102,26 @@
             const list = document.getElementById('gl-scores-list');
             const subtitle = document.getElementById('gl-lb-subtitle');
             const code = window.sessionCode;
-            list.innerHTML = '<div class="gl-loading">Loading on-chain data…</div>';
-            if (subtitle) subtitle.textContent = code ? 'Session: ' + code : 'Global leaderboard';
+            list.innerHTML = '<div class="gl-loading">Loading…</div>';
+            if (subtitle) subtitle.textContent = code ? 'Tournament: ' + code : 'Global leaderboard';
+
+            // Tournament offline mode — show in-memory scores, no chain call needed
+            if (code && !window.walletAddr) {
+                const offlineScores = window._tournamentScores || [];
+                if (offlineScores.length === 0) {
+                    list.innerHTML = '<div class="gl-no-scores">No scores yet — game in progress!</div>';
+                } else {
+                    list.innerHTML = offlineScores.slice(0, 10).map((s, i) =>
+                        `<div class="gl-score-row">
+                            <span class="gl-rank">#${i + 1}</span>
+                            <span class="gl-uname">${escapeHtml(s.name)}</span>
+                            <span class="gl-score-val">${Number(s.score).toLocaleString()}</span>
+                        </div>`
+                    ).join('');
+                }
+                return;
+            }
+
             try {
                 const fetchCount = code ? 50 : 10;
                 const allScores = await readClient.readContract({
@@ -3101,12 +3159,41 @@
 
         // Called by game when game over
         window.mochiOnGameOver = (scoreVal) => {
+            // Track guest best score
+            if (window.guestName && !window.walletAddr) {
+                if (!window._guestBest || scoreVal > window._guestBest) {
+                    window._guestBest = scoreVal;
+                }
+            }
+            // Tournament offline score: record into session score table
+            if (window.sessionCode && window.guestName && !window.walletAddr) {
+                if (!window._tournamentScores) window._tournamentScores = [];
+                const existing = window._tournamentScores.findIndex(e => e.name === window.guestName);
+                if (existing === -1) {
+                    window._tournamentScores.push({ name: window.guestName, score: scoreVal });
+                } else if (scoreVal > window._tournamentScores[existing].score) {
+                    window._tournamentScores[existing].score = scoreVal;
+                }
+                // Sort descending
+                window._tournamentScores.sort((a, b) => b.score - a.score);
+                // Mark player as done in the player panel
+                const p = (window._tournamentPlayers || []).find(x => x.name === window.guestName);
+                if (p) { p.status = 'done'; refreshPlayersPanel(); }
+            }
+
             const panel = document.getElementById('gl-panel');
             panel.dataset.score = String(scoreVal);
             const inputRow = document.getElementById('gl-input-row');
             const guestRow = document.getElementById('gl-guest-row');
-            if (window.guestName && !window.walletAddr) {
-                // Guest mode: show score with name, no submit, still can view leaderboard
+
+            if (window.sessionCode && !window.walletAddr) {
+                // Tournament guest mode: show score, no on-chain submit, view local leaderboard
+                inputRow.style.display = 'none';
+                guestRow.style.display = 'block';
+                const playerName = window.guestName || 'Guest';
+                guestRow.innerHTML = '<strong>' + escapeHtml(playerName) + '</strong> — ' + Number(scoreVal).toLocaleString() + ' pts';
+            } else if (window.guestName && !window.walletAddr) {
+                // Solo guest: show score, prompt to connect wallet
                 inputRow.style.display = 'none';
                 guestRow.style.display = 'block';
                 guestRow.textContent = window.guestName + ' — ' + Number(scoreVal).toLocaleString() + ' pts  (connect wallet to save)';
@@ -3125,6 +3212,11 @@
             document.getElementById('gl-submit-btn').disabled = false;
             setStatus('');
             document.getElementById('gl-name').value = '';
+            // Mark this player as playing in the tournament panel
+            if (window.sessionCode && window.guestName) {
+                const p = (window._tournamentPlayers || []).find(x => x.name === window.guestName);
+                if (p) { p.status = 'playing'; refreshPlayersPanel(); }
+            }
         };
 
         // ─── Submit Score via MetaMask ─────────────────────────────────
