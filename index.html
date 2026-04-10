@@ -785,7 +785,7 @@
                 style="display:none;background:rgba(42,8,69,0.9);border:1.5px solid #b44fff;border-radius:6px;color:#fff;font-size:11px;font-weight:bold;padding:6px 10px;cursor:pointer;font-family:Arial,sans-serif;">⬡
                 Submit Best Score to Chain</button>
             <div id="gl-status"></div>
-            <button id="gl-board-btn">View Leaderboard</button>
+            <button id="gl-board-btn" style="display:none">View Leaderboard</button>
         </div>
 
         <!-- Full-screen leaderboard overlay -->
@@ -814,7 +814,10 @@
         let highScore = 0;
         const MAX_SPEED = 1.4;
         const SESSION_DURATION_TOURNAMENT = 300; // 5 minutes tournament
+        const SOLO_UNLOCK_DURATION = 300; // 5 minutes cumulative to unlock leaderboard
         let sessionTimeLeft = SESSION_DURATION_TOURNAMENT;
+        let soloPlayTotal = 0; // cumulative solo play seconds
+        let soloLeaderboardUnlocked = false;
         // Solo = endless run (no timer). Tournament = 5 min countdown.
         function getSessionDuration() { return SESSION_DURATION_TOURNAMENT; }
 
@@ -1004,6 +1007,19 @@
                     gameOver = true;
                     gameState = 'gameover';
                     window._tournamentRunDone = true;
+                    triggerShake(10);
+                    if (typeof window.mochiOnGameOver === 'function') window.mochiOnGameOver(Math.floor(score));
+                    return;
+                }
+            } else {
+                // Solo mode: track cumulative play time
+                soloPlayTotal += sec;
+                if (!soloLeaderboardUnlocked && soloPlayTotal >= SOLO_UNLOCK_DURATION) {
+                    soloLeaderboardUnlocked = true;
+                    // End current run and show leaderboard
+                    if (score > highScore) highScore = Math.floor(score);
+                    gameOver = true;
+                    gameState = 'gameover';
                     triggerShake(10);
                     if (typeof window.mochiOnGameOver === 'function') window.mochiOnGameOver(Math.floor(score));
                     return;
@@ -2067,13 +2083,26 @@
             ctx.font = "bold 20px 'Orbitron', Arial";
             ctx.fillText(coinCount, W - 14, 38);
 
-            // Countdown timer — center (tournament only)
+            // Countdown timer — center
             if (window.sessionCode) {
                 const mins = Math.floor(sessionTimeLeft / 60);
                 const secs = String(Math.floor(sessionTimeLeft % 60)).padStart(2, '0');
                 const timeStr = mins + ':' + secs;
                 const timerColor = sessionTimeLeft <= 30 ? '#ff2d78' : sessionTimeLeft <= 60 ? '#f4c010' : 'rgba(255,255,255,0.65)';
                 if (sessionTimeLeft <= 30) { ctx.shadowColor = '#ff2d78'; ctx.shadowBlur = 12; }
+                ctx.fillStyle = timerColor;
+                ctx.font = "bold 14px 'Orbitron', Arial";
+                ctx.textAlign = 'center';
+                ctx.fillText(timeStr, W / 2, 33);
+                ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+            } else if (!soloLeaderboardUnlocked) {
+                // Solo mode: show time remaining until leaderboard unlocks
+                const remaining = Math.max(0, SOLO_UNLOCK_DURATION - soloPlayTotal);
+                const mins = Math.floor(remaining / 60);
+                const secs = String(Math.floor(remaining % 60)).padStart(2, '0');
+                const timeStr = mins + ':' + secs;
+                const timerColor = remaining <= 30 ? '#ff2d78' : remaining <= 60 ? '#f4c010' : 'rgba(255,255,255,0.4)';
+                if (remaining <= 30) { ctx.shadowColor = '#ff2d78'; ctx.shadowBlur = 12; }
                 ctx.fillStyle = timerColor;
                 ctx.font = "bold 14px 'Orbitron', Arial";
                 ctx.textAlign = 'center';
@@ -3923,11 +3952,15 @@
                 bestRow.style.display = 'block';
                 bestRow.innerHTML = (isNewBest ? '🏆 NEW HIGH SCORE! ' : 'BEST: ') + Number(bestVal).toLocaleString();
                 bestRow.style.color = isNewBest ? '#f4c010' : '#b44fff';
-                // Show submit button
+                // Show submit button only if leaderboard unlocked
                 const submitBestBtn = document.getElementById('gl-submit-best-btn');
-                submitBestBtn.style.display = 'block';
-                submitBestBtn.disabled = false;
-                submitBestBtn.textContent = '⬡ Submit Best (' + Number(bestVal).toLocaleString() + ') to Chain';
+                if (soloLeaderboardUnlocked || window.sessionCode) {
+                    submitBestBtn.style.display = 'block';
+                    submitBestBtn.disabled = false;
+                    submitBestBtn.textContent = '⬡ Submit Best (' + Number(bestVal).toLocaleString() + ') to Chain';
+                } else {
+                    submitBestBtn.style.display = 'none';
+                }
             } else {
                 inputRow.style.display = 'flex';
                 guestRow.style.display = 'none';
@@ -3935,8 +3968,18 @@
             panel.style.display = 'flex';
             applySessionUI();
 
-            // Auto-open tournament leaderboard after a brief delay so Firebase scores sync
+            // Show leaderboard button only when unlocked
+            const boardBtn = document.getElementById('gl-board-btn');
+            if (window.sessionCode || soloLeaderboardUnlocked) {
+                boardBtn.style.display = '';
+            } else {
+                boardBtn.style.display = 'none';
+            }
+
+            // Auto-open leaderboard after a brief delay
             if (window.sessionCode) {
+                setTimeout(openLeaderboard, 1500);
+            } else if (soloLeaderboardUnlocked) {
                 setTimeout(openLeaderboard, 1500);
             }
         };
