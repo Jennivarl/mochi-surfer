@@ -2885,7 +2885,7 @@
                     // Auto-show leaderboard now that timer expired
                     const boardBtn = document.getElementById('gl-board-btn');
                     if (boardBtn) boardBtn.style.display = '';
-                    setTimeout(openLeaderboard, 500);
+                    setTimeout(() => { if (window.openLeaderboard) window.openLeaderboard(); }, 500);
                 }
             }
 
@@ -4176,6 +4176,7 @@
             clearInterval(_lbRefreshInterval);
             _lbRefreshInterval = setInterval(loadTopScores, 15000);
         }
+        window.openLeaderboard = openLeaderboard; // expose globally for gameLoop timer
         function closeLeaderboard() {
             document.getElementById('gl-leaderboard-overlay').style.display = 'none';
             clearInterval(_lbRefreshInterval);
