@@ -6,20 +6,35 @@ class MochiLeaderboard(gl.Contract):
     names:  TreeMap[str, str]
     scores: TreeMap[str, u256]
 
+    def __init__(self):
+        pass
+
     @gl.public.write
     def submit_score(self, name: str, score: int) -> None:
         assert 1 <= len(name) <= 20, "Name must be 1-20 characters"
         assert score >= 0, "Score must be non-negative"
-        moderation_result = gl.eq_principle.prompt_comparative(
-            lambda: gl.nondet.exec_prompt(
-                f'Is the username {repr(name)} appropriate for a family-friendly '
-                f'cyberpunk skateboarding game leaderboard? '
-                f'Reject if: profanity, slurs, sexual content, cheat-references, or attacks. '
-                f'Respond only: yes or no.'
-            ),
-            principle="yes if appropriate, no if it should be rejected",
+
+        prompt = (
+            f'Is the username {repr(name)} appropriate for a family-friendly '
+            f'cyberpunk skateboarding game leaderboard? '
+            f'Reject if: profanity, slurs, sexual content, cheat-references, or attacks. '
+            f'Respond only: yes or no.'
         )
-        assert moderation_result.lower().strip().startswith("yes"), "Username rejected by AI moderation"
+
+        def leader_fn():
+            return gl.nondet.exec_prompt(prompt).strip().lower()
+
+        def validator_fn(leader_result):
+            if not isinstance(leader_result, gl.vm.Return):
+                return False
+            own_answer = leader_fn()
+            leader_yes = leader_result.calldata.startswith("yes")
+            validator_yes = own_answer.startswith("yes")
+            return leader_yes == validator_yes
+
+        moderation_result = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
+        assert moderation_result.startswith("yes"), "Username rejected by AI moderation"
+
         caller = str(gl.message.sender_address)
         existing = self.scores.get(caller)
         if existing is None or score > existing:
