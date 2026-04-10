@@ -28,15 +28,15 @@
 
         body {
             background: #050210;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
+            width: 100vw;
             height: 100vh;
+            height: 100dvh;
             overflow: hidden;
             touch-action: none;
             user-select: none;
             -webkit-user-select: none;
             font-family: 'Orbitron', Arial, sans-serif;
+            position: relative;
         }
 
         canvas {
@@ -48,10 +48,10 @@
 
         /* ─── GenLayer Blockchain UI ─────────────────────────── */
         #game-wrap {
-            position: relative;
+            position: absolute;
             width: 480px;
             height: 720px;
-            transform-origin: top center;
+            transform-origin: top left;
             touch-action: none;
         }
 
@@ -313,6 +313,28 @@
 
         #gl-lb-close:hover {
             background: rgba(80, 20, 120, 0.9);
+        }
+
+        #gl-lb-menu {
+            margin-top: 2px;
+            background: linear-gradient(135deg, #00b4d8 0%, #00dcff 100%);
+            border: 2px solid #00dcff;
+            border-radius: 8px;
+            color: #050210;
+            font-size: 14px;
+            font-weight: 900;
+            padding: 12px;
+            cursor: pointer;
+            font-family: 'Orbitron', Arial, sans-serif;
+            letter-spacing: 2px;
+            text-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 0 16px rgba(0, 220, 255, 0.4);
+            transition: background 0.2s, box-shadow 0.2s;
+        }
+
+        #gl-lb-menu:hover {
+            background: linear-gradient(135deg, #00dcff 0%, #48e8ff 100%);
+            box-shadow: 0 0 24px rgba(0, 220, 255, 0.6);
         }
 
         .gl-no-scores,
@@ -795,6 +817,7 @@
                 <div class="gl-lb-subtitle" id="gl-lb-subtitle">Global leaderboard</div>
                 <div id="gl-scores-list"></div>
                 <button id="gl-lb-close">✕ Close</button>
+                <button id="gl-lb-menu">← BACK TO MENU</button>
             </div>
         </div>
     </div>
@@ -1459,10 +1482,18 @@
 
         canvas.addEventListener("touchend", (e) => {
             e.preventDefault();
-            if (gameState === 'start') { resetGame(); return; }
+            if (gameState === 'start') {
+                if (window._lobbyActive) return;
+                if (window._tournamentRunDone) return;
+                if (startCountdown > 0) return;
+                beginStartCountdown();
+                return;
+            }
             if (gameState === 'gameover') {
                 const pos = getCanvasPos(e);
-                if (isInsideBtn(pos, restartBtn) && !window._tournamentRunDone && !window.sessionCode) resetGame();
+                if (isInsideBtn(pos, closeBtn)) { dismissGameOver(); return; }
+                if (isInsideBtn(pos, dismissBtn)) { dismissGameOver(); return; }
+                if (isInsideBtn(pos, restartBtn) && !window.sessionCode) { beginStartCountdown(); return; }
                 return;
             }
             if (!touchHandled) {
@@ -2221,7 +2252,7 @@
         // Button hit-test helper
         const restartBtn = { x: W / 2 - 100, y: 0, w: 200, h: 52 }; // y set in draw
         const dismissBtn = { x: W / 2 - 100, y: 0, w: 200, h: 44 };  // "Back to Menu" on game-over
-        const closeBtn = { x: W / 2 - 14, y: 0, w: 28, h: 28 };    // ✕ corner close
+        const closeBtn = { x: W / 2 - 14, y: 0, w: 30, h: 30 };    // ✕ corner close
         const startBtn = { x: W / 2 - 110, y: 0, w: 220, h: 52 };
         let startCountdown = 0;      // >0 while counting down 3…2…1
         let startCountdownId = null; // setInterval handle
@@ -2851,6 +2882,7 @@
             // but hide gl-panel so screen is clean; mochiOnGameOver already showed it
             // Keep it open so user can click View Leaderboard if they want
         }
+        window.dismissGameOver = dismissGameOver; // expose for leaderboard back-to-menu
 
         function beginStartCountdown() {
             if (startCountdown > 0) return;
@@ -2915,16 +2947,19 @@
         // ─── Scale game to fit screen on mobile ───────────────────────
         function scaleGame() {
             const wrap = document.getElementById('game-wrap');
-            const scaleX = window.innerWidth / 480;
-            const scaleY = window.innerHeight / 720;
-            const scale = Math.min(scaleX, scaleY, 1); // never upscale
+            const vp = window.visualViewport || { width: window.innerWidth, height: window.innerHeight };
+            const vw = vp.width;
+            const vh = vp.height;
+            const scaleX = vw / 480;
+            const scaleY = vh / 720;
+            const scale = Math.min(scaleX, scaleY);
             wrap.style.transform = `scale(${scale})`;
-            // Center vertically when scaled down
-            const scaledH = 720 * scale;
-            wrap.style.marginTop = Math.max(0, (window.innerHeight - scaledH) / 2) + 'px';
+            wrap.style.left = Math.max(0, (vw - 480 * scale) / 2) + 'px';
+            wrap.style.top = Math.max(0, (vh - 720 * scale) / 2) + 'px';
         }
         scaleGame();
         window.addEventListener('resize', scaleGame);
+        if (window.visualViewport) window.visualViewport.addEventListener('resize', scaleGame);
     </script>
     <script>
         // ─── EIP-6963: set up as early as possible so no wallet announcement is missed.
@@ -4182,9 +4217,21 @@
             clearInterval(_lbRefreshInterval);
             _lbRefreshInterval = null;
         }
+        function leaderboardBackToMenu() {
+            closeLeaderboard();
+            // Reset tournament state
+            window.sessionCode = null;
+            window._tournamentRunDone = false;
+            window._tournamentScores = [];
+            window._lobbyActive = false;
+            document.getElementById('gl-panel').style.display = 'none';
+            // Return to start screen
+            if (typeof window.dismissGameOver === 'function') window.dismissGameOver();
+        }
 
         document.getElementById('gl-board-btn').addEventListener('click', openLeaderboard);
         document.getElementById('gl-lb-close').addEventListener('click', closeLeaderboard);
+        document.getElementById('gl-lb-menu').addEventListener('click', leaderboardBackToMenu);
     </script>
 </body>
 
